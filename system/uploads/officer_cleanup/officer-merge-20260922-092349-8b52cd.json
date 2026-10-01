@@ -1,0 +1,21 @@
+{
+    "at": "2026-09-22T09:23:49+02:00",
+    "by": "pyo",
+    "target": "ELIZA   JOY S. PAREDES",
+    "names": [
+        "ELIZA   JOY S. PAREDES",
+        "ELIZA JOY S. PAREDES"
+    ],
+    "changes": [
+        {
+            "t": "items",
+            "id": 60579,
+            "from": "ELIZA JOY S. PAREDES"
+        },
+        {
+            "t": "items",
+            "id": 60590,
+            "from": "ELIZA JOY S. PAREDES"
+        }
+    ]
+}

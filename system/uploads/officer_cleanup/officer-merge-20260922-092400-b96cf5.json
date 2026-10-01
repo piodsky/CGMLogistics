@@ -1,0 +1,21 @@
+{
+    "at": "2026-09-22T09:24:00+02:00",
+    "by": "pyo",
+    "target": "ANNE ROSE C. ESPARTERO",
+    "names": [
+        "ANNE ROSE C. ESPARTERO",
+        "ANNE  ROSE C. ESPARTERO"
+    ],
+    "changes": [
+        {
+            "t": "items",
+            "id": 7425,
+            "from": "ANNE  ROSE C. ESPARTERO"
+        },
+        {
+            "t": "items",
+            "id": 12245,
+            "from": "ANNE  ROSE C. ESPARTERO"
+        }
+    ]
+}

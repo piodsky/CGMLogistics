@@ -1,0 +1,161 @@
+/* Shared PO report styling; matches the existing Crystal Report recreation. */
+.print-page {
+    font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #000;
+    background: #fff; width: 816px; max-width: 100%; margin: 0 auto;
+    box-shadow: 0 4px 18px rgba(0,0,0,.18);
+}
+/* Slimmer margin/padding than before — 2026-09-14, "don't make big margin of
+   the left and right" — so the form uses more of the paper's actual
+   printable width. Shared by the PO printout and the Obligation Request,
+   which is why the full-page treatment used to live on a separate modifier
+   class rather than here: the Obligation Request's .print-page is
+   deliberately narrower (650px, see buildObligationPreviewHtml) and was
+   never meant to fill a whole sheet the way the PO form is. */
+.pp-frame { border: 1.5px solid #000; margin: 8px; padding: 10px 14px 8px; }
+/* .pp-frame-full USED to force min-height:1010px + margin-top:auto on the
+   signature row, so a short PO (few items) still read as a whole page
+   instead of stopping halfway down one. Removed 2026-09-22 — request:
+   "the margin ... not get too big get spaced": on a short PO that stretch
+   left a large dead gap between the items and the signature block, which
+   read as an oversized margin even though the page's actual edge margin
+   never changed. Same call made on .iar-frame/.dv-frame/.inv-frame/
+   .prp-frame in the other print modules; a short document now simply ends
+   after its content. The class is still applied in buildPoPreviewHtml's
+   markup (harmless — no rule targets it anymore); removing it there too is
+   just cleanup, not required for this fix. */
+/* The barcode is overlaid, not a table cell, so the letterhead keeps the exact
+   [seal][text][seal] geometry it had before the barcode existed — a symmetric
+   row is what centres the address block on the page. Giving the barcode its own
+   <td> stole ~200px from the right and visibly shoved the text off-centre. */
+.pp-letterhead-wrap { position: relative; }
+.pp-letterhead { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+.pp-letterhead td { vertical-align: middle; text-align: center; }
+.pp-seal { width: 90px; }
+.pp-seal img { width: 82px; height: 82px; object-fit: contain; }
+/* Code 128 of the PO number, floated in the letterhead left of the BAC seal.
+   The img's width is set inline from poBarcodeDisplayWidth() — exactly half the
+   PNG's natural width, so each bar falls on a whole pixel. A fractional ratio
+   blurs the bar edges and scanners stop reading it. It is not hardcoded here
+   because the symbol width depends on the PO number's length.
+   Centred vertically with a negative margin rather than a transform: the print
+   is rasterised by html2canvas, and plain box offsets rasterise identically
+   everywhere while transforms do not. -25px is half the block's 49px height
+   (38px bars + 1px gap + ~10px caption). */
+.pp-barcode-float {
+    position: absolute; right: 96px; top: 50%; margin-top: -25px;
+    text-align: center;
+}
+.pp-barcode { height: 38px; display: block; margin: 0 auto; image-rendering: crisp-edges; }
+.pp-barcode-caption {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 8.5px; letter-spacing: .06em; margin-top: 1px; color: #000;
+}
+.pp-letterhead-text { font-size: 10.5px; line-height: 1.3; color: #1e3a8a; }
+.pp-letterhead-text strong { color: #000; }
+.pp-letterhead-text a { color: #1d4ed8; text-decoration: none; }
+.pp-rule { border: none; border-top: 3px solid #000; margin: 4px 0 8px; }
+/* Lighter blue than the letterhead's #1e3a8a, as requested. Kept at #3b82f6
+   rather than anything paler: the title is the one line on the form that has to
+   survive a photocopy, and lighter than this starts dropping out to grey. */
+.pp-title-center {
+    text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .04em;
+    margin: 6px 0 8px; color: #3b82f6;
+}
+.pp-underline { border-bottom: 1px solid #000; padding: 0 4px; display: inline-block; min-width: 120px; }
+.pp-bold { font-weight: 700; }
+/* 2026-09-22: bumped from the .print-page base (12px) to 13px by request —
+   this table (SUPPLIER/ADDRESS/MODE OF PROCUREMENT/REF# + PO NO./DATE/PR
+   NO./BAC REF#) reads small at 12px given how little text most cells hold. */
+.pp-header-grid { width: 100%; border-collapse: collapse; margin-bottom: 8px; border: 1px solid #000; font-size: 13px; }
+.pp-header-grid td { border: 1px solid #000; padding: 3px 6px; vertical-align: middle; }
+.pp-header-grid .pp-hg-label { font-weight: 700; width: 15%; white-space: nowrap; }
+.pp-header-grid .pp-hg-value { width: 35%; }
+/* Supplier phone number, printed under the address rather than in a row of its
+   own — only 45 of 811 suppliers have one on file, so a dedicated row would be
+   empty on most purchase orders. */
+.pp-supplier-contact { margin-top: 2px; }
+.pp-gentlemen { margin: 10px 0; }
+.pp-indent { display: inline-block; padding-left: 24px; }
+.pp-note { margin: 4px 0; }
+.pp-po-number { font-weight: 700; }
+.pp-block3 { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+.pp-block3 td { vertical-align: top; padding: 1px 4px; }
+.pp-block3 .col1 { width: 55%; }
+.pp-block3 .col3 { width: 45%; white-space: nowrap; }
+.pp-block3 div { margin-bottom: 3px; }
+.pp-underline-sm { min-width: 32px; }
+.pp-items { width: 100%; border-collapse: collapse; margin: 6px 0; }
+/* 2026-09-22: default bumped from 12px to 14px by request. The "Item text"
+   dropdown in the print toolbar (pp-text-1/pp-text-2 below) still steps up
+   from whatever this base is — its own values were bumped to 15/16 to match,
+   so "Larger"/"Largest" stay larger than the new default instead of landing
+   below it. */
+.pp-items th, .pp-items td { border: 1px solid #000; padding: 3px 6px; font-size: 14px; }
+/* Top, not middle: once a description runs to 40 lines the default
+   vertical centring floats No./QTY/Units/costs into the middle of the
+   cell, far from the item they belong to. The legacy form lines them up
+   with the first line of the description. */
+.pp-items td { vertical-align: top; }
+.pp-items th { text-align: center; }
+.pp-items td.num { text-align: right; }
+.pp-items td.center { text-align: center; }
+/* Item descriptions are written as a multi-line block — a job title, then a
+   SCOPE OF WORK list, indented with spaces. 51,000+ existing item rows are
+   already stored that way. Default HTML collapses every run of whitespace,
+   which turned all of it into one unreadable paragraph on the printed form;
+   pre-wrap keeps the line breaks and the indentation, while still wrapping
+   any single line that is too wide for the column.
+   A wrapped line hangs back to the left edge rather than under its own
+   indent, which matches how the legacy printout behaves. */
+.pp-items td.desc { white-space: pre-wrap; }
+/* One line of an item description. Block-level purely so the PDF pager can
+   break between lines — visually it must be indistinguishable from the
+   pre-wrap text it replaced, so no margin, no padding, inherited line-height. */
+.pp-items td.desc .pp-dl { white-space: pre-wrap; margin: 0; padding: 0; }
+/* Item text size, stepped up one or two pixels from the 14px default (see
+   .pp-items above). Applied to the whole grid rather than to the description
+   cell alone: the No./QTY/Unit/cost cells are top-aligned so they line up
+   with the FIRST LINE of the description, and growing only the description
+   would push that first line down and break the alignment the form depends
+   on. */
+.print-page.pp-text-1 .pp-items th, .print-page.pp-text-1 .pp-items td { font-size: 15px; }
+.print-page.pp-text-2 .pp-items th, .print-page.pp-text-2 .pp-items td { font-size: 16px; }
+
+.pp-nothing-follows { text-align: center; font-style: italic; }
+/* The initial the receiving clerk writes beside "nothing follows" — the legacy
+   Crystal report's ?initial parameter. It sits inside the same cell, directly
+   after the text, so the two centre as one line; upright and bold against the
+   italic so it reads as a signature rather than part of the sentence. */
+.pp-initial { margin-left: 18px; font-style: normal; font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
+.pp-lot-title { background: #e5e7eb; font-weight: 700; padding: 4px 7px; border: 1px solid #000; border-bottom: none; margin-top: 8px; }
+/* Amount in Words / TOTAL / PURPOSE — matches the .pp-items default (14px,
+   above it) since the two print as one continuous visual block. */
+.pp-summary-box { border: 1px solid #000; border-top: none; margin-bottom: 0; font-size: 14px; }
+.pp-totals { width: 100%; border-collapse: collapse; }
+.pp-totals td { padding: 4px 6px; vertical-align: middle; }
+.pp-total-label { text-align: right; font-weight: 700; width: 55px; white-space: nowrap; }
+.pp-total-value { text-align: right; font-weight: 700; border-left: 1px solid #000; width: 100px; }
+.pp-purpose-row { width: 100%; border-collapse: collapse; border-top: 1px solid #000; }
+.pp-purpose-row td { padding: 5px 6px; vertical-align: top; }
+.pp-purpose-label { font-weight: 700; font-style: italic; white-space: nowrap; width: 80px; }
+.pp-terms { font-size: 9.5px; margin: 6px 0 22px; line-height: 1.4; }
+/* Verification QR — sits at the right of the Conforme band, above the
+   approving signatory. The symbol carries a URL plus an encrypted token, so
+   it runs ~41 modules at EC level L; at 132px on an 816px-wide (8.5in) page
+   that puts each module near 0.8mm, comfortably above the ~0.4mm floor a
+   phone camera needs. Shrinking .pp-qr much below 120px makes scans fail. */
+.pp-conforme-band { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+.pp-conforme-cell { font-weight: 700; vertical-align: bottom; }
+.pp-qr-cell { width: 152px; text-align: center; vertical-align: bottom; }
+.pp-qr { width: 132px; height: 132px; display: block; margin: 0 auto; }
+.pp-qr-caption { font-size: 8px; line-height: 1.3; margin-top: 2px; }
+.pp-qr-scan { font-size: 7.5px; color: #333; letter-spacing: .01em; }
+.pp-sign-row { width: 100%; border-collapse: collapse; }
+.pp-sign-row td { width: 50%; vertical-align: bottom; padding-top: 36px; }
+.pp-sign-left { text-align: center; }
+.pp-sign-right { text-align: center; }
+.pp-sign-line { border-top: 1px solid #000; width: 75%; margin: 0 auto; }
+.pp-sign-caption { font-style: italic; margin-top: 2px; font-size: 10.5px; }
+.pp-sign-name { font-weight: 700; }
+.pp-sign-title { margin-top: 2px; }
+

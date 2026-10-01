@@ -1,0 +1,287 @@
+/* ── Inventory & Property — the printed forms ─────────────────────────────
+ *
+ * Six document shapes (PAR, ICS, ITR, PTR, Property Card [+ Semi-Expendable],
+ * Tag) built from ONE set of tokens, matching how every other printout in
+ * this app (Purchase Order, Obligation Request, IAR, Disbursement Voucher)
+ * is styled: the 1.5px frame, the serif body, the 3px rule under the
+ * letterhead, the blue title, the bordered item table. These documents leave
+ * the same office as those, so they read as siblings.
+ *
+ * WHAT THIS IS NOT: a pixel facsimile of the Crystal Reports layout. The
+ * office has now supplied the real .rpt files (vb/Inventory/Crystal
+ * Reports), extracted with the 32-bit CrystalDecisions runtime into
+ * tools/rpt_reports/inv/*.layout.tsv + *.fonts.tsv — every field, label,
+ * table column and reading order below is read straight off those, same as
+ * js/inventory-print.js documents at its own top. The visual styling —
+ * frame, serif, blue title, table borders — stays this app's own, the same
+ * choice iar-print.css made once its own .rpt became available: a form
+ * family reads as one office's paperwork, not six different decades.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.inv-sheet {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12px;
+    color: #000;
+    background: #fff;
+    width: 816px;            /* 8.5in at 96dpi — the same sheet width every printout in this app uses */
+    max-width: 100%;
+    margin: 0 auto;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .18);
+}
+/* Slimmer margin/padding — same reasoning as .iar-frame/.dv-frame: less dead
+   paper on the left/right. Used to also force a min-height pegged to roughly
+   a full sheet, with the signature block pushed to the bottom via
+   margin-top:auto, so a short PAR/ICS/ITR/PTR/MR still read as a whole page.
+   Removed 2026-09-22 along with the same pattern on .iar-frame/
+   .pp-frame-full/.dv-frame/.prp-frame — verified on IAR that it left a
+   large dead gap on short documents rather than a full page, which is what
+   read as "too big a margin". A short document (or the Property Card's
+   ledger, which never had a signature block to push down in the first
+   place) now simply ends after its content. */
+.inv-frame {
+    border: 1.5px solid #000; margin: 8px; padding: 10px 14px 10px;
+}
+
+.inv-letterhead { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+.inv-letterhead td { vertical-align: middle; text-align: center; }
+.inv-seal { width: 90px; }
+.inv-seal img { width: 82px; height: 82px; object-fit: contain; }
+.inv-letterhead-text { font-size: 10.5px; line-height: 1.3; color: #1e3a8a; }
+.inv-letterhead-text strong { color: #000; font-size: 11.5px; }
+.inv-letterhead-text .email { color: #1d4ed8; }
+.inv-rule { border: none; border-top: 3px solid #000; margin: 4px 0 8px; }
+.inv-rule-par { border-top-color: #f28c28; }
+.inv-rule-ics { border-top-color: #166534; }
+.inv-rule-itr { border-top-color: #db2777; }
+.inv-rule-ptr { border-top-color: #7c3aed; }
+
+.inv-title {
+    text-align: center; font-size: 20px; font-weight: 700; letter-spacing: .04em;
+    margin: 4px 0 8px; color: #3b82f6;
+}
+.inv-title-par { color: #f28c28; }
+.inv-title-ics { color: #166534; }
+.inv-title-itr { color: #db2777; }
+.inv-title-ptr { color: #7c3aed; }
+.inv-subtitle { text-align: center; font-size: 10px; color: #334155; margin: -4px 0 8px; letter-spacing: .03em; }
+
+/* ── Entity / Fund Cluster / Document-No. header band ─────────────────────
+   Same three-column shape the ORS and DV forms already use for their own
+   header bands, so the "form family" reads consistently. */
+/* 2026-09-22: bumped from 12px to 13px, matching purchase_orders.php's
+   .pp-header-grid — same "SUPPLIER/DATE/PO NO."-shaped header band, same
+   font-size decision made there. */
+.inv-grid { width: 100%; border-collapse: collapse; border: 1px solid #000; margin-bottom: 8px; }
+.inv-grid td { border: 1px solid #000; padding: 4px 7px; vertical-align: middle; font-size: 13px; }
+.inv-grid .lbl { font-weight: 600; white-space: nowrap; }
+.inv-grid .val { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ── Item table ─────────────────────────────────────────────────────────── */
+/* 2026-09-22: td bumped from 12px to 14px, matching purchase_orders.php's
+   .pp-items. th keeps its own smaller uppercase/letter-spaced size below —
+   that column-header treatment is this whole 6-document family's own
+   established look, not something the PO comparison touches. */
+.inv-items { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.inv-items th, .inv-items td { border: 1px solid #000; padding: 4px 6px; font-size: 14px; vertical-align: top; }
+.inv-items th { text-align: center; font-weight: 700; background: #f1f5f9; font-size: 10.5px; text-transform: uppercase; letter-spacing: .02em; }
+.inv-items td.center { text-align: center; }
+.inv-items td.num { text-align: right; white-space: nowrap; }
+.inv-items td.desc { text-align: left; }
+.inv-items tfoot td { font-weight: 700; background: #f8fafc; }
+/* A LOT divider row — same idea as the Purchase Order's "LOT 1" caption. */
+.inv-items tr.lot td { background: #f1f5f9; font-weight: 700; text-align: left; }
+/* Unit Breakdown lines under a PAR/ICS item (subDetailLines() in
+   js/inventory-print.js). No rule between an item and its lines, or between
+   the lines themselves, so the block reads as one item with its particulars
+   rather than as extra items; the vertical column rules stay. */
+.inv-items tr.has-subs td { border-bottom: none; }
+/* Main description 14px; bold when the item has breakdown lines under it, so
+   the item stands out from its 12px particulars. */
+.inv-items td.desc { font-size: 14px; }
+.inv-desc-line { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* descHtml() in js/inventory-print.js: the item's first line, bold when
+   anything sits under it (spec lines or Unit Breakdown lines); its spec lines
+   normal and smaller, the same 12px as the breakdown lines. */
+.inv-items .inv-desc-main.b { font-weight: 700; }
+.inv-items .inv-desc-spec { font-size: 12px; font-weight: 400; margin-top: 1px; }
+.inv-items tr.inv-sub td { border-top: none; border-bottom: none; padding-top: 1px; padding-bottom: 1px; font-size: 12px; font-weight: 400; }
+.inv-items tr.inv-sub td.inv-sub-desc { font-size: 12px; }
+.inv-items tr.inv-sub.last td { border-bottom: 1px solid #000; padding-bottom: 4px; }
+.inv-items td.inv-sub-desc { padding-left: 22px; }
+
+/* ***nothing follows*** — same treatment as the IAR/PO item tables. */
+.inv-nothing-follows { text-align: center; font-style: italic; }
+.inv-initial { margin-left: 18px; font-style: normal; font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
+
+/* ── Stacked info block — PO Number / Date Acquired / Property Number /
+   Total Amount / Classification / Acquired from / Purpose / Remarks, the
+   real PAR/ICS reading order (a single label:value column, not a grid).
+   ITR/PTR reuse it for their shorter Acquired from / Reason block.
+   2026-09-22: bumped from 12px to 14px — prints as one continuous visual
+   block with .inv-items right above it, same reasoning as .pp-summary-box
+   in purchase_orders.php. ─────────────────────────────────────────────── */
+.inv-info-list { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.inv-info-list td { border: 1px solid #000; padding: 4px 7px; font-size: 14px; vertical-align: top; }
+.inv-info-list .lbl { font-weight: 600; white-space: nowrap; background: #f8fafc; }
+.inv-info-list .val { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ── Certification / acknowledgement text ──────────────────────────────── */
+.inv-ack { font-size: 11px; line-height: 1.5; margin: 6px 0 10px; text-align: justify; }
+
+/* ── Signature blocks — PAR/ICS's two-up Issued by / Received by ────────── */
+.inv-sign-grid { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.inv-sign-grid td { border: 1px solid #000; padding: 6px 9px 8px; vertical-align: top; width: 50%; font-size: 9.5px; }
+.inv-sign-head { font-weight: 700; font-size: 10px; margin-bottom: 14px; }
+.inv-sign-line { border-bottom: 1px solid #000; height: 22px; margin-bottom: 2px; }
+.inv-sign-name { font-weight: 700; text-align: center; }
+.inv-sign-caption { text-align: center; font-style: italic; font-size: 9px; color: #334155; }
+.inv-sign-title { text-align: center; font-size: 9.5px; }
+.inv-sign-date { text-align: center; font-size: 9px; margin-top: 3px; }
+/* PAR / ICS only (buildIssuance() adds .inv-issuance): the acknowledgement
+   and the Received by / Issued by block in a size that reads like the 14px
+   item table above them, not fine print. Other forms keep the sizes above. */
+.inv-issuance .inv-ack { font-size: 13px; line-height: 1.55; }
+.inv-issuance .inv-sign-grid td { font-size: 12px; padding: 8px 12px 10px; }
+.inv-issuance .inv-sign-head { font-size: 13px; margin-bottom: 18px; }
+.inv-issuance .inv-sign-line { height: 30px; }
+.inv-issuance .inv-sign-name { font-size: 14px; }
+.inv-issuance .inv-sign-caption { font-size: 11.5px; }
+.inv-issuance .inv-sign-title { font-size: 12.5px; }
+.inv-issuance .inv-sign-date { font-size: 12px; margin-top: 5px; }
+
+/* ── ITR/PTR's three-up Approved / Released-Issued / Received grid, each
+   with its own Printed Name / Signature / Designation / Date rows — the real
+   report's shape, not the PAR/ICS two-up. ──────────────────────────────── */
+.inv-sign-grid3 { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.inv-sign-grid3 td { border: 1px solid #000; padding: 5px 8px; font-size: 9.5px; width: 33.34%; }
+.inv-sign-grid3 td.head { font-weight: 700; text-align: center; background: #f1f5f9; }
+.inv-sign-blank { display: inline-block; border-bottom: 1px solid #000; width: 70%; height: 1em; vertical-align: bottom; }
+
+/* ── Transfer Type checkboxes — "check only one" on the real ITR/PTR ────── */
+.inv-transfer-kind { font-size: 10px; margin-bottom: 8px; }
+.inv-transfer-kind .k { font-weight: 600; margin-right: 8px; }
+.inv-check-item { margin-right: 14px; white-space: nowrap; }
+.inv-check-box { display: inline-block; width: 12px; height: 12px; border: 1px solid #000; text-align: center;
+    line-height: 11px; font-weight: 700; font-size: 9px; margin-right: 2px; }
+
+/* ITR uses 12-point text throughout and joins the item body to its signatures. */
+.inv-itr-sheet { font-size: 12pt; line-height: 1.25; }
+.inv-itr-sheet .inv-frame { min-height: 0; }
+.inv-itr-sheet td,
+.inv-itr-sheet th,
+.inv-itr-sheet .inv-letterhead-text,
+.inv-itr-sheet .inv-letterhead-text strong,
+.inv-itr-sheet .inv-transfer-kind,
+.inv-itr-sheet .inv-check-box,
+.inv-itr-sheet .inv-itr-footer { font-size: inherit; }
+.inv-itr-sheet .inv-title { font-size: 18pt; margin: 8px 0 12px; }
+.inv-itr-sheet .inv-grid .lbl,
+.inv-itr-sheet .inv-info-list .lbl { white-space: normal; }
+.inv-itr-sheet .val,
+.inv-itr-sheet .desc,
+.inv-itr-sheet .inv-sign-grid3 td,
+.inv-itr-sheet .inv-itr-footer { overflow-wrap: anywhere; }
+.inv-itr-sheet .inv-info-list .val { white-space: pre-wrap; }
+.inv-itr-sheet .inv-check-box { width: 16px; height: 16px; line-height: 14px; }
+.inv-itr-sheet .inv-items { margin-bottom: 0; }
+.inv-itr-sheet .inv-frame > table.inv-sign-grid3:last-child { margin-top: -1px; }
+.inv-itr-footer {
+    border: 1px solid #000;
+    margin-top: -1px;
+    break-inside: avoid;
+}
+.inv-itr-sign-row,
+.inv-itr-date-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.inv-itr-sign-row { background: #fff; }
+.inv-itr-sign {
+    min-width: 0;
+    padding: 10px 14px 8px;
+    border-right: 1px solid #000;
+}
+.inv-itr-sign:last-child,
+.inv-itr-date-row > div:last-child { border-right: none; }
+.inv-itr-sign-role {
+    text-align: center;
+    font-weight: 700;
+    background: #f1f5f9;
+    border: 1px solid #000;
+    margin: -3px -6px 20px;
+    padding: 4px 6px;
+}
+.inv-itr-sign-name,
+.inv-itr-sign-title {
+    min-height: 25px;
+    text-align: center;
+    border-bottom: 1px solid #000;
+    font-weight: 700;
+}
+.inv-itr-sign-title {
+    margin-top: 18px;
+    font-weight: 400;
+}
+.inv-itr-sign-caption {
+    margin-top: 3px;
+    text-align: center;
+    font-size: 10pt;
+    font-style: italic;
+    color: #334155;
+}
+.inv-itr-date-row {
+    border-top: 1px solid #000;
+    background: #f8fafc;
+}
+.inv-itr-date-row > div {
+    border-right: 1px solid #000;
+    padding: 8px 14px;
+    text-align: center;
+}
+
+/* ── Property Card (ledger) ────────────────────────────────────────────── */
+.inv-card-head { width: 100%; border-collapse: collapse; border: 1px solid #000; margin-bottom: 6px; }
+.inv-card-head td { border: 1px solid #000; padding: 4px 7px; font-size: 10px; }
+.inv-card-head td:nth-child(even) { white-space: pre-wrap; overflow-wrap: anywhere; }
+.inv-ledger { width: 100%; border-collapse: collapse; }
+.inv-ledger th, .inv-ledger td { border: 1px solid #000; padding: 4px 5px; font-size: 9.5px; }
+.inv-ledger th { background: #f1f5f9; text-align: center; font-weight: 700; text-transform: uppercase; font-size: 8.5px; }
+.inv-ledger td.desc { white-space: normal; overflow-wrap: anywhere; }
+.inv-ledger td.num, .inv-ledger td.center { text-align: right; white-space: nowrap; }
+.inv-ledger td.center { text-align: center; }
+.inv-ledger-empty { text-align: center; color: #64748b; font-style: italic; padding: 10px; }
+
+/* ── Tag (physical label sticker) ─────────────────────────────────────────
+   Sized to the real Label Report's 3.58in x 2.77in sticker (Section2's own
+   height + margins), not invented. ──────────────────────────────────────── */
+.inv-tag-sheet { width: 320px; }
+.inv-tag-frame { border: 1.5px solid #000; padding: 8px 10px; }
+.inv-tag-title { text-align: center; font-weight: 700; font-size: 10.5px; letter-spacing: .03em; color: #334155; }
+.inv-tag-property-no { text-align: center; font-weight: 700; font-size: 14px; letter-spacing: .03em; color: #3b82f6; margin-bottom: 4px; }
+.inv-tag-row { display: flex; justify-content: space-between; font-size: 9.5px; padding: 1px 0; gap: 6px; }
+.inv-tag-row .k { font-weight: 600; white-space: nowrap; }
+.inv-tag-row .v { text-align: right; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.inv-tag-barcode { text-align: center; margin-top: 6px; }
+.inv-tag-barcode img { max-width: 100%; }
+.inv-tag-barcode .num { font-size: 9px; letter-spacing: .08em; margin-top: 1px; }
+/* "TAMPERING OF THIS STICKER IS PUNISHABLE BY LAW" — printed on the real
+   sticker's edge as small vertical type; kept horizontal here since a tag
+   this size is read up close, not from across a room. */
+.inv-tag-warning { text-align: center; font-size: 6.5px; letter-spacing: .04em; color: #b91c1c; margin-top: 5px; text-transform: uppercase; }
+.inv-tag-small { width: 220px; }
+.inv-tag-small .inv-tag-property-no { font-size: 11px; }
+.inv-tag-small .inv-tag-row { font-size: 8px; }
+
+/* ── Off-screen render host + shared PDF preview toolbar ──────────────────
+   Same shapes iar-print.css already defines for the other printouts —
+   redefined here rather than shared, so inventory.php stays self-contained
+   like every other page in this app. */
+.inv-offscreen { position: absolute; top: 0; left: 0; height: 0; overflow: hidden; }
+.pp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; justify-content: space-between; margin-bottom: .75rem; }
+.pp-tool { display: flex; align-items: center; gap: .4rem; }
+.pp-tool label { font-size: .78rem; font-weight: 600; color: var(--muted, #64748b); }
+.pp-tool select { width: auto; min-width: 12rem; font-size: .82rem; }
+.pp-layout-status { display: flex; align-items: center; gap: .6rem; font-size: .78rem; color: var(--muted, #64748b); }
+.pp-layout-status .pp-sheets { font-weight: 700; color: var(--navy, #1e3a8a); }
+.pp-layout-status .pp-layout-note { color: #b45309; }
+.pdf-preview-frame { width: 100%; height: 70vh; border: none; background: #fff; }

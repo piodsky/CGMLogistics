@@ -1,0 +1,89 @@
+/* Purchase Request printout.
+ *
+ * The same form language as the Purchase Order printout in purchase_orders.php
+ * (BAC letterhead with the barcode floated beside the seal, ruled header grid,
+ * ruled item table, boxed total + purpose, signature block) so a PR and a PO
+ * from the same desk read as one family of documents. The rules are copied from
+ * the PO's .pp-* set under a .prp-* prefix rather than shared: purchase_orders.php
+ * keeps its own inline copy (see the note in css/item-grid.css for why that page
+ * is left alone), and this file is what the PR page links.
+ *
+ * Rasterised by html2canvas (js/print-pdf.js), so plain box offsets are used
+ * throughout — transforms do not rasterise identically everywhere. */
+
+.prp-page {
+    font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #000;
+    background: #fff; width: 816px; max-width: 100%; margin: 0 auto;
+    box-shadow: 0 4px 18px rgba(0,0,0,.18);
+}
+.prp-frame { border: 1.5px solid #000; margin: 8px; padding: 10px 14px 8px; }
+/* Used to force min-height:1010px + margin-top:auto on the signature block so
+   a short request still read as a whole page. Removed 2026-09-22 along with
+   the same pattern on .iar-frame/.pp-frame-full/.dv-frame/.inv-frame —
+   verified on IAR that it left a large dead gap on short documents rather
+   than a full page, which is what read as "too big a margin". A short
+   request now simply ends after its content. */
+
+.prp-letterhead-wrap { position: relative; }
+.prp-letterhead { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+.prp-letterhead td { vertical-align: middle; text-align: center; }
+.prp-seal { width: 90px; }
+.prp-seal img { width: 82px; height: 82px; object-fit: contain; }
+/* Code 128, floated in the letterhead left of the BAC seal — an overlay, not a
+   table cell, so the letterhead keeps its symmetric [seal][text][seal] geometry
+   and the address block stays centred. Width is set inline (half the PNG's
+   natural width) so every bar lands on a whole pixel; a fractional ratio blurs
+   the edges and scanners stop reading it. */
+.prp-barcode-float { position: absolute; right: 96px; top: 50%; margin-top: -25px; text-align: center; }
+.prp-barcode { height: 38px; display: block; margin: 0 auto; image-rendering: crisp-edges; }
+.prp-barcode-caption { font-family: 'Consolas', 'Courier New', monospace; font-size: 8.5px; letter-spacing: .06em; margin-top: 1px; color: #000; }
+.prp-letterhead-text { font-size: 10.5px; line-height: 1.3; color: #1e3a8a; }
+.prp-letterhead-text strong { color: #000; }
+.prp-letterhead-text a { color: #1d4ed8; text-decoration: none; }
+.prp-rule { border: none; border-top: 3px solid #000; margin: 4px 0 8px; }
+.prp-title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .04em; margin: 6px 0 8px; color: #3b82f6; }
+
+.prp-header-grid { width: 100%; border-collapse: collapse; margin-bottom: 8px; border: 1px solid #000; }
+.prp-header-grid td { border: 1px solid #000; padding: 3px 6px; vertical-align: middle; }
+.prp-header-grid .prp-hg-label { font-weight: 700; width: 15%; white-space: nowrap; }
+.prp-header-grid .prp-hg-value { width: 35%; }
+.prp-number { font-weight: 700; }
+
+.prp-items { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.prp-items th, .prp-items td { border: 1px solid #000; padding: 3px 6px; font-size: 12px; }
+/* Top, not middle: once a description runs to 40 lines the default vertical
+   centring floats No./QTY/Units/costs into the middle of the cell. */
+.prp-items td { vertical-align: top; }
+.prp-items th { text-align: center; }
+.prp-items td.num { text-align: right; }
+.prp-items td.center { text-align: center; }
+/* A description is a multi-line block; pre-wrap keeps the buyer's line breaks
+   and indentation. Each source line is its own block (.prp-dl) so the PDF pager
+   has a break candidate every line instead of only at the row boundary. */
+.prp-items td.desc { white-space: pre-wrap; }
+.prp-items td.desc .prp-dl { white-space: pre-wrap; margin: 0; padding: 0; }
+.prp-items tr.prp-title-row td.desc { font-weight: 700; }
+.prp-items td.remarks { font-size: 10.5px; }
+.prp-page.prp-text-1 .prp-items th, .prp-page.prp-text-1 .prp-items td { font-size: 13px; }
+.prp-page.prp-text-2 .prp-items th, .prp-page.prp-text-2 .prp-items td { font-size: 14px; }
+.prp-nothing-follows { text-align: center; font-style: italic; }
+
+.prp-summary-box { border: 1px solid #000; border-top: none; margin-bottom: 0; }
+.prp-totals { width: 100%; border-collapse: collapse; }
+.prp-totals td { padding: 4px 6px; vertical-align: middle; }
+.prp-total-label { text-align: right; font-weight: 700; width: 55px; white-space: nowrap; }
+.prp-total-value { text-align: right; font-weight: 700; border-left: 1px solid #000; width: 100px; }
+.prp-underline { border-bottom: 1px solid #000; padding: 0 4px; display: inline-block; min-width: 120px; }
+.prp-purpose-row { width: 100%; border-collapse: collapse; border-top: 1px solid #000; }
+.prp-purpose-row td { padding: 5px 6px; vertical-align: top; }
+.prp-purpose-label { font-weight: 700; font-style: italic; white-space: nowrap; width: 80px; }
+.prp-note { margin: 6px 0 0; }
+
+/* Three signatories across: requested by, funds certified by, approved by. */
+.prp-sign-row { width: 100%; border-collapse: collapse; margin-top: 18px; }
+.prp-sign-row td { width: 33.33%; vertical-align: bottom; padding: 0 8px; text-align: center; }
+.prp-sign-role { text-align: left; font-style: italic; font-size: 11px; height: 44px; }
+.prp-sign-line { border-top: 1px solid #000; width: 90%; margin: 0 auto; }
+.prp-sign-name { font-weight: 700; min-height: 15px; margin-top: 2px; }
+.prp-sign-title { margin-top: 2px; font-size: 11px; min-height: 14px; }
+.prp-sign-date { font-style: italic; font-size: 10.5px; margin-top: 12px; text-align: left; }

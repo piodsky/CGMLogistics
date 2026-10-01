@@ -1,0 +1,50 @@
+﻿[
+    {
+        "fixture":  "guide",
+        "type":  "noa",
+        "width":  768,
+        "beforeHeight":  1130,
+        "fontSize":  "16px",
+        "pageCountText":  ""
+    },
+    {
+        "fixture":  "guide",
+        "type":  "contract",
+        "width":  768,
+        "beforeHeight":  4199,
+        "fontSize":  "16px",
+        "pageCountText":  "FOUR (4)"
+    },
+    {
+        "fixture":  "guide",
+        "type":  "ntp",
+        "width":  768,
+        "beforeHeight":  976,
+        "fontSize":  "16px",
+        "pageCountText":  ""
+    },
+    {
+        "fixture":  "photo",
+        "type":  "noa",
+        "width":  768,
+        "beforeHeight":  1147,
+        "fontSize":  "16px",
+        "pageCountText":  ""
+    },
+    {
+        "fixture":  "photo",
+        "type":  "contract",
+        "width":  768,
+        "beforeHeight":  3319,
+        "fontSize":  "16px",
+        "pageCountText":  "THREE (3)"
+    },
+    {
+        "fixture":  "photo",
+        "type":  "ntp",
+        "width":  768,
+        "beforeHeight":  972,
+        "fontSize":  "16px",
+        "pageCountText":  ""
+    }
+]

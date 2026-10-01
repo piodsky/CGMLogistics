@@ -1,0 +1,1107 @@
+<!doctype html><html><head><meta charset="UTF-8"><base href="file:///C:/xampp/htdocs/SystemsMISPYO/PurchaseOrder/system/"><link rel="stylesheet" href="vendor/css/bootstrap.min.css"><style>
+/* Same card / field / chip vocabulary as Purchase Orders and Document
+   Tracking, so all three screens read as one system. Only what this page
+   adds is here. */
+.table-actions { display: flex; gap: .35rem; flex-wrap: wrap; }
+.po-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem 1.4rem; margin-bottom: 1.1rem; }
+.po-card-title { display: flex; align-items: center; gap: .55rem; font-weight: 700; color: var(--navy); font-size: 1rem; margin-bottom: 1.1rem; }
+.po-card-title i { color: var(--primary); font-size: 1.05rem; }
+.po-field-group { margin-bottom: 1rem; }
+.po-field-group > label { font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: .3rem; display: block; }
+.po-field-group .form-control, .po-field-group .form-select { font-size: .87rem; min-height: 38px; }
+/* These grow to fit their own content (autoGrowField), so the manual resize
+   grabber is both redundant and a way to leave a field stuck at the wrong
+   height. overflow:hidden stops a scrollbar flashing up mid-grow. */
+.cb-autogrow { resize: none; overflow: hidden; }
+.po-field-hint { font-size: .72rem; color: var(--muted); margin-top: .25rem; line-height: 1.35; }
+.req::after { content: ' *'; color: #dc2626; font-weight: 700; }
+/* The statutory rate, sitting on the label so it reads as part of the field's
+   name rather than as advice that can be scrolled past. */
+.cb-pct-tag {
+    font-weight: 700; font-size: .64rem; text-transform: none; letter-spacing: 0;
+    color: #1d4ed8; background: #e8f0ff; border: 1px solid #bfdbfe;
+    border-radius: 20px; padding: .04rem .4rem; margin-left: .3rem; white-space: nowrap;
+}
+/* Amber when the typed figure is not the statutory rate — a look-twice, not
+   an error: a bond agreed at another rate is legitimate, just worth seeing. */
+.cb-pct-off { color: #92400e; font-weight: 600; }
+
+/* css/base.css defines .badge-status but not its state modifiers — the PO
+   page carries those inline. Same values here so a status reads identically
+   on both screens. */
+.badge-status.pending  { background: linear-gradient(135deg,#d97706,#f59e0b); color: #fff; }
+.badge-status.complete { background: linear-gradient(135deg,#16a34a,#22c55e); color: #fff; }
+/* The stage ladder. Deliberately one hue walking from amber through blue to
+   green rather than six unrelated colours: the point of the badge is that a
+   glance down the column shows how far along each set is, and six arbitrary
+   colours would have to be memorised before they meant anything.
+   Grey = nothing has happened yet, green = it has left this office. */
+/* The subtitle carries the full contract name, which on a consolidated bid
+   is several hundred characters. Two lines, then an ellipsis — the whole
+   string is on the element's title attribute for anyone who needs it. */
+#cbModal.cb-viewing #cbItemsTable th:last-child,
+#cbModal.cb-viewing #cbItemsTable td:last-child { display: none; }
+.cb-modal-subtitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.badge-status.st-draft   { background: linear-gradient(135deg,#64748b,#94a3b8); color: #fff; }
+.badge-status.st-awarded { background: linear-gradient(135deg,#d97706,#f59e0b); color: #fff; }
+.badge-status.st-bond    { background: linear-gradient(135deg,#c2410c,#ea580c); color: #fff; }
+.badge-status.st-signing { background: linear-gradient(135deg,#7c3aed,#a78bfa); color: #fff; }
+.badge-status.st-signed  { background: linear-gradient(135deg,#1d4ed8,#3b82f6); color: #fff; }
+.badge-status.st-ntp     { background: linear-gradient(135deg,#0e7490,#06b6d4); color: #fff; }
+.badge-status.st-cgso    { background: linear-gradient(135deg,#15803d,#22c55e); color: #fff; }
+/* Six stages will not sit on one line on a laptop; let them wrap. */
+.po-count-chips { flex-wrap: wrap; }
+.po-chip.chip-on { outline: 2px solid var(--primary); outline-offset: 1px; }
+/* .badge-status is nowrap by default, which suits a one-word status and cuts
+   "Submission of Performance Bond" off mid-word. Capped and wrapped instead:
+   two short lines read fine in a table cell, a truncated one does not. */
+#cbTable .badge-status {
+    white-space: normal; display: inline-block; max-width: 150px;
+    line-height: 1.25; text-align: center;
+}
+
+/* Count chips — readouts and controls at once, exactly as on the PO list. */
+.po-count-chips { display: flex; gap: .4rem; flex-wrap: wrap; }
+.po-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .3rem .7rem; border-radius: 20px;
+    font-size: .75rem; font-weight: 600; white-space: nowrap;
+    border: 1px solid var(--border); background: #fff; color: var(--muted);
+    cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+}
+.po-chip:hover { background: #f8fafc; }
+.po-chip-num { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+/* One chip per stage, each tinted with its badge's hue so a chip and the
+   badges it filters to are recognisably the same thing. Same walk from grey
+   through amber and blue to green as .badge-status.st-* below. */
+.po-chip-draft   { border-color: #cbd5e1; color: #475569; }
+.po-chip-awarded { border-color: #fcd34d; color: #b45309; }
+.po-chip-bond    { border-color: #fdba74; color: #c2410c; }
+.po-chip-signing { border-color: #ddd6fe; color: #6d28d9; }
+.po-chip-signed  { border-color: #bfdbfe; color: #1d4ed8; }
+.po-chip-ntp     { border-color: #a5f3fc; color: #0e7490; }
+.po-chip-cgso    { border-color: #86efac; color: #15803d; }
+.po-chip-draft   .po-chip-num { color: #475569; }
+.po-chip-awarded .po-chip-num { color: #b45309; }
+.po-chip-bond    .po-chip-num { color: #c2410c; }
+.po-chip-signing .po-chip-num { color: #6d28d9; }
+.po-chip-signed  .po-chip-num { color: #1d4ed8; }
+.po-chip-ntp     .po-chip-num { color: #0e7490; }
+.po-chip-cgso    .po-chip-num { color: #15803d; }
+
+.po-chip.is-active { background: linear-gradient(135deg,#1e3a8a,#2563eb); border-color: transparent; color: #fff; }
+.po-chip.is-active .po-chip-num { color: #fff; }
+.po-chip-draft.is-active   { background: linear-gradient(135deg,#64748b,#94a3b8); }
+.po-chip-awarded.is-active { background: linear-gradient(135deg,#d97706,#f59e0b); }
+.po-chip-bond.is-active    { background: linear-gradient(135deg,#c2410c,#ea580c); }
+.po-chip-signing.is-active { background: linear-gradient(135deg,#7c3aed,#a78bfa); }
+.po-chip-signed.is-active  { background: linear-gradient(135deg,#1d4ed8,#3b82f6); }
+.po-chip-ntp.is-active     { background: linear-gradient(135deg,#0e7490,#06b6d4); }
+.po-chip-cgso.is-active    { background: linear-gradient(135deg,#15803d,#22c55e); }
+
+/* Bid / contract numbers, tinted the way the PO list tints its own. */
+.bid-num-pill, .contract-num-pill {
+    display: inline-block; padding: .18rem .55rem; border-radius: 6px;
+    font-size: .8rem; font-weight: 700; white-space: nowrap; border: 1px solid transparent;
+}
+.bid-num-pill      { color: #6d28d9; background: #f3ebff; border-color: #ddd0fb; }
+.contract-num-pill { color: #1d4ed8; background: #e8f0ff; border-color: #bfdbfe; }
+.cb-empty { color: var(--muted); }
+
+/* Contract name and location are free text and often a full sentence — shown
+   in full, wrapping onto as many lines as they need, capped in width so they
+   wrap instead of pushing the rest of the columns off to the right. */
+#cbTable tbody td { vertical-align: top; }
+.cb-wrap-cell { display: block; max-width: 240px; min-width: 150px; white-space: normal; word-break: break-word; }
+/* PR Amount and Savings pushed the grid two columns wider, and the six action
+   buttons are the one cell with no reason to give ground: left to wrap they
+   stacked into a vertical strip and every row grew to match. The table scrolls
+   sideways instead, which is the right thing for it to do. */
+#cbTable .table-actions { flex-wrap: nowrap; }
+.cb-amount { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-weight: 600; }
+.cb-amount.muted { font-weight: 500; color: var(--muted); }
+/* Savings in the list. Green reads as money kept, amber as money over — and
+   the sub-line carries the percentage, because ₱40,000 saved means nothing
+   until you know whether it came off ₱50,000 or off ₱50,000,000. */
+.cb-save      { display: block; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cb-save-val  { font-weight: 700; color: #15803d; }
+.cb-save-pct  { display: block; font-size: .68rem; color: var(--muted); font-weight: 600; }
+.cb-save.over .cb-save-val { color: #b45309; }
+.cb-save.none .cb-save-val { color: var(--muted); font-weight: 500; }
+
+/* The savings band under the two amounts in the form: the whole reason both
+   figures are on this screen, so it is stated rather than left to be worked
+   out from the two numbers above it. */
+.cb-savings-band {
+    border-radius: 10px; padding: .55rem .75rem; border: 1px solid #bbf7d0;
+    background: #f0fdf4; display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap;
+}
+.cb-savings-band .lab { font-size: .72rem; font-weight: 700; text-transform: uppercase;
+                        letter-spacing: .04em; color: #166534; }
+.cb-savings-band .val { font-size: 1.05rem; font-weight: 800; color: #15803d;
+                        font-variant-numeric: tabular-nums; }
+.cb-savings-band .sub { font-size: .74rem; color: #166534; }
+.cb-savings-band.over { border-color: #fde68a; background: #fffbeb; }
+.cb-savings-band.over .lab, .cb-savings-band.over .sub { color: #92400e; }
+.cb-savings-band.over .val { color: #b45309; }
+.cb-savings-band.idle { border-color: var(--border); background: #f8fafc; }
+.cb-savings-band.idle .lab, .cb-savings-band.idle .sub { color: var(--muted); }
+.cb-savings-band.idle .val { color: var(--muted); font-size: .9rem; font-weight: 600; }
+
+/* The modal's left column and the item grid each scroll on their own, so a
+   long specification list never pushes Save off the bottom. */
+.cb-form-scroll { overflow-y: auto; max-height: 62vh; padding-right: .4rem; }
+.cb-section-sep { border-top: 1px dashed var(--border); margin: .2rem 0 1.1rem; }
+#cbSubtotal { font-size: 1.4rem; font-weight: 700; color: var(--navy); }
+
+/* ── Modal chrome, lifted from the Create Purchase Order modal so the two
+      screens are the same piece of software. Values are copied rather than
+      shared: purchase_orders.php keeps its own inline copy (see the note in
+      css/item-grid.css for why that page is left alone), and these are pinned
+      to fixed colours rather than --text/--muted so the cards stay readable on
+      the white modal background however those vars are retuned. ── */
+.modal-cb-wide { max-width: min(1600px, 96vw); }
+
+.po-modal-header-v2 {
+    background: linear-gradient(135deg, var(--navy), #1e40af);
+    color: #fff; border-bottom: none;
+    padding: 1.25rem 1.5rem;
+    display: flex; align-items: center; gap: 1rem;
+}
+.po-header-icon {
+    width: 46px; height: 46px; border-radius: 14px; flex: 0 0 auto;
+    background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: #fff;
+}
+.po-header-text { flex: 1 1 auto; min-width: 0; }
+.po-header-text .modal-title { color: #fff; font-weight: 700; font-size: 1.15rem; margin: 0; }
+.po-header-text small { display: block; color: rgba(255,255,255,.72); font-size: .8rem; margin-top: .1rem; }
+.po-header-close {
+    width: 38px; height: 38px; flex: 0 0 auto; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12); color: #fff;
+    display: flex; align-items: center; justify-content: center; transition: background .15s;
+}
+.po-header-close:hover { background: rgba(255,255,255,.25); color: #fff; }
+#cbModal .modal-content { color: #1e293b; }
+
+/* Compact card + field density, so 31 fields fit without the modal turning
+   into a scroll marathon. */
+.po-card-compact { padding: .95rem 1.15rem; }
+.po-card-compact .po-card-title { margin-bottom: .65rem; font-size: .92rem; }
+.po-card-compact .po-field-group { margin-bottom: .4rem; }
+.po-card-compact .po-field-group > label { font-size: .72rem; margin-bottom: .15rem; }
+.tight-field-row .po-field-group { margin-bottom: .6rem; }
+
+/* Icon-prefixed inputs. The icon is pointer-events:none so clicking it still
+   focuses the field underneath rather than swallowing the click. */
+.po-input-wrap { position: relative; }
+.po-input-wrap > .po-input-icon {
+    position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
+    width: 28px; height: 28px; border-radius: 8px; background: rgba(37,99,235,.1); color: var(--primary);
+    display: flex; align-items: center; justify-content: center; font-size: .78rem; pointer-events: none;
+}
+.po-input-wrap > .form-control, .po-input-wrap > .form-select { padding-left: 40px; }
+.po-input-wrap > textarea.form-control { padding-top: .55rem; }
+/* A textarea grows downward, so its icon is pinned near the top line instead
+   of centred on a box whose height keeps changing. */
+.po-input-wrap > textarea.form-control ~ .po-input-icon { top: 19px; transform: none; }
+.po-card-compact .po-input-wrap > .po-input-icon { width: 22px; height: 22px; font-size: .68rem; }
+.po-card-compact .po-input-wrap > .form-control,
+.po-card-compact .po-input-wrap > .form-select { padding: .3rem .5rem .3rem 32px; min-height: 32px; font-size: .8rem; }
+.po-card-compact .po-input-wrap > textarea.form-control ~ .po-input-icon { top: 5px; }
+
+/* Empty item grid. */
+.po-items-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 3rem 1.5rem;
+}
+.po-items-empty-icon {
+    width: 74px; height: 74px; border-radius: 50%; background: rgba(37,99,235,.1); color: var(--primary);
+    display: flex; align-items: center; justify-content: center; font-size: 1.7rem; margin-bottom: 1rem;
+}
+.po-items-empty-title { font-weight: 700; color: #1e293b; margin-bottom: .2rem; }
+.po-items-empty-sub { color: #64748b; font-size: .88rem; }
+
+.po-add-row-link {
+    display: block; text-align: center; padding: .6rem; font-size: .85rem; font-weight: 600;
+    color: var(--primary); border: 1px dashed var(--border); border-radius: 8px; margin-top: .6rem;
+    background: none; width: 100%; cursor: pointer;
+}
+.po-add-row-link:hover { background: rgba(37,99,235,.05); }
+
+.po-items-footer-bar {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem;
+    background: rgba(37,99,235,.05); border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: .7rem 1.1rem; margin-top: .75rem;
+}
+.po-items-footer-bar .po-items-count { color: #475569; font-size: .9rem; }
+.po-items-footer-bar .po-items-count strong { color: #1e293b; }
+
+/* Import guide — same vocabulary as the Purchase Order modal's, so the file
+   format is explained the same way on both screens. */
+.import-guide {
+    background: rgba(37,99,235,.06); border: 1px solid rgba(37,99,235,.2);
+    border-radius: 8px; padding: .65rem .9rem; font-size: .82rem; color: #1e293b;
+}
+.import-guide code { font-size: .8rem; }
+.imp-eg { width: 100%; border-collapse: collapse; font-size: .74rem; margin: .45rem 0 .2rem; }
+.imp-eg th, .imp-eg td { border: 1px solid #d7dee8; padding: .22rem .45rem; white-space: nowrap; }
+.imp-eg th { background: #eef2f7; font-weight: 700; color: var(--navy); font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
+.imp-eg td.blank { background: #f8fafc; }
+.imp-eg tr.eg-title td { background: #eef6ff; font-weight: 700; color: #1d4ed8; }
+.imp-eg tr.eg-bad td { background: #fff5f5; }
+.imp-eg .tag { font-size: .66rem; font-weight: 700; padding: .04rem .3rem; border-radius: 20px; white-space: nowrap; }
+.imp-eg .tag.ok  { background: #dcfce7; color: #15803d; }
+.imp-eg .tag.no  { background: #fee2e2; color: #b91c1c; }
+.imp-eg td.note  { white-space: normal; border: 0; background: none; font-size: .7rem; color: var(--muted); padding-left: .5rem; }
+
+/* ── Contract Agreement printout ──────────────────────────────────────
+   A recreation of the BAC's actual printed contract. Everything here is
+   measured off the scanned original rather than invented, so the generated
+   copy sits alongside the paper ones without looking like a different form.
+   Rasterised by html2canvas (see js/print-pdf.js), so plain box offsets are
+   used throughout — transforms do not rasterise identically everywhere. */
+.cp-preview-body { background: #e2e8f0; padding: 24px; min-height: 60vh; }
+/* Off-screen but still laid out. NOT display:none — html2canvas needs a real
+   render box, and scrollHeight/getBoundingClientRect are meaningless without
+   one. */
+.cp-offscreen-source { position: absolute; top: 0; left: 0; height: 0; overflow: hidden; }
+.pdf-preview-frame { width: 100%; height: 72vh; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; }
+
+.cp-page {
+    width: 768px; background: #fff; color: #000;
+    font-family: 'Times New Roman', Times, serif; font-size: 16px; line-height: 1.3;
+}
+/* No border here — the source is one continuous flow sliced into 20+ PDF
+   pages (see js/print-pdf.js), so a border baked into this HTML only ever
+   drew as open-ended vertical lines running down every page with no top/bottom
+   rule closing it off. The blue double rule the original's pre-bordered stock
+   has is drawn instead as real PDF furniture, once per page, in
+   drawContractFurniture() below — that's the only place a "per page" border
+   can actually be closed on each sheet. */
+.cp-frame { padding: 0; margin: 0; }
+.cp-frame-inner { padding: 12px 20px 22px 84px; }
+
+.cp-letterhead { width: 88%; border-collapse: collapse; margin: 0 auto 4px; }
+.cp-letterhead td { vertical-align: middle; text-align: center; }
+.cp-seal { width: 100px; }
+.cp-seal img { width: 88px; height: 88px; object-fit: contain; }
+.cp-lh-text { font-size: 12px; line-height: 1.3; color: #000; }
+.cp-lh-text .cp-lh-city { font-family: Arial, Helvetica, sans-serif; font-size: 20px; font-weight: 700; color: #000; }
+.cp-lh-text .cp-lh-rep { font-style: italic; }
+.cp-rule { border: none; border-top: 3px double #1f3f8f; opacity: 1; margin: 5px 0 10px; }
+
+.cp-contract-no { text-align: center; font-weight: 700; margin: 10px 0 22px; }
+.cp-contract-no .cp-val { border-bottom: 1px solid #000; padding: 0 26px; display: inline-block; min-width: 120px; }
+
+/* Boxed title block. */
+.cp-title-box { border: 2px solid #1f3f8f; padding: 12px 16px 18px; text-align: center; margin: 0 10px 24px; }
+.cp-title-kicker { font-weight: 700; text-decoration: underline; margin-bottom: 14px; }
+.cp-title-name { font-family: Arial, Helvetica, sans-serif; font-size: 18px; font-weight: 700; color: #000; line-height: 1.3; }
+
+.cp-h { text-align: center; font-weight: 700; margin: 16px 0 12px; letter-spacing: .02em; }
+.cp-p { margin: 0 0 10px; text-align: justify; }
+.cp-blank { border-bottom: 1px solid #000; display: inline-block; min-width: 60px; }
+.cp-center { text-align: center; margin: 6px 0; }
+/* The numbered clauses and their sub-lists. Padding rather than list markers,
+   so the numbering matches the original exactly (1., 2., a., i., ii., …). */
+.cp-list { margin: 0 0 10px; padding-left: 26px; }
+.cp-list > div { margin-bottom: 6px; text-align: justify; }
+.cp-sublist { padding-left: 26px; margin-top: 6px; }
+.cp-sublist > div { margin-bottom: 3px; }
+.cp-marker { display: inline-block; width: 22px; margin-left: -22px; }
+
+/* Item grid — same two-shape rule the app enforces, printed the way the
+   original prints it. */
+.cp-items { width: 100%; border-collapse: collapse; margin: 12px 0 0; }
+.cp-items th, .cp-items td { border: 1px solid #000; padding: 4px 6px; font-size: 14px; }
+.cp-items th { background: #fff; text-align: center; font-weight: 700; color: #000; }
+.cp-items td { vertical-align: top; }
+.cp-items td.num { text-align: right; }
+.cp-items td.center { text-align: center; }
+/* pre-wrap: a description now routinely holds a whole specification block on
+   one row, and its line breaks are the buyer's own formatting. */
+.cp-items td.desc { white-space: pre-wrap; }
+.cp-items tr.cp-priced td.desc { font-weight: 700; }
+.cp-nothing { text-align: center; font-style: italic; font-weight: 700; background: #fdf3d3; }
+.cp-grand td { background: #fdf3d3; font-weight: 700; }
+.cp-grand .cp-grand-label { text-align: center; }
+.cp-delivery td { font-weight: 700; }
+.cp-penalty { font-size: 14px; margin: 8px 0 14px; text-align: justify; }
+
+/* Signature and notary blocks. */
+.cp-sign { width: 100%; border-collapse: collapse; margin-top: 26px; }
+.cp-sign td { width: 50%; vertical-align: top; padding: 0 10px 26px; }
+.cp-sign-role { min-height: 3.9em; margin-bottom: 40px; }
+.cp-sign-name { font-weight: 700; }
+.cp-sign-title { font-style: italic; }
+.cp-sign-date { margin-top: 4px; }
+.cp-ack-line { margin: 4px 0; }
+.cp-notary-grid { margin-top: 26px; line-height: 1.9; }
+.cp-signatures, .cp-notary { break-inside: avoid; }
+.cp-witness-line { display: block; min-height: 22px; border-bottom: 1px solid #000; margin-right: 24px; }
+.cp-page-count { white-space: nowrap; }
+
+/* ── Notice of Award / Notice to Proceed ──────────────────────────────
+   Both are single-page letters on the BAC's letterhead — two seals, an email
+   line, and no frame. Distinct enough from the contract to keep their own
+   block rather than being bent out of .cp-*. */
+/* The guide is 8.5 x 13 inches. At 768px printable width, 16px prints at
+   12 points without shrinking; leave a writing gap below the letter date. */
+.cl-page {
+    width: 768px; background: #fff; color: #000; padding: 12px 42px 20px;
+    font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.3;
+}
+.cl-letterhead { width: 100%; border-collapse: collapse; }
+.cl-letterhead td { vertical-align: middle; text-align: center; }
+.cl-seal { width: 88px; }
+.cl-seal img { width: 80px; height: 80px; object-fit: contain; }
+.cl-lh-text { font-size: 11px; line-height: 1.35; color: #000; }
+.cl-lh-rep { font-style: italic; font-family: 'Times New Roman', Times, serif; font-size: 13px; }
+.cl-lh-city { font-size: 17px; font-weight: 700; }
+.cl-lh-bac { font-size: 18px; font-weight: 700; font-style: italic; font-family: 'Times New Roman', Times, serif; }
+.cl-lh-mail { color: #000; }
+/* The standard-form number sits above the rule on the right, in grey — it is
+   the form's identity, not part of the letter. */
+.cl-sf { text-align: right; font-size: 8.5px; color: #333; line-height: 1.3; margin-top: -14px; }
+.cl-rule { border: none; border-top: 3px double #000; opacity: 1; margin: 4px 0 12px; }
+
+/* The three-line reference block under the rule: italic labels, bold values. */
+.cl-ref { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.cl-ref td { vertical-align: top; padding: 1px 0; }
+.cl-ref .cl-ref-label { font-style: italic; font-size: 12px; width: 178px; white-space: nowrap; }
+.cl-ref .cl-ref-value { font-size: 14px; }
+.cl-ref .cl-ref-value { font-weight: 700; }
+
+.cl-title { text-align: center; font-weight: 700; letter-spacing: .04em; margin: 20px 0 24px; }
+.cl-date { border-bottom: 1px solid #000; display: inline-block; min-width: 210px; min-height: 24px; padding: 0 4px 2px; margin-bottom: 40px; }
+.cl-addr { margin-bottom: 14px; line-height: 1.4; }
+.cl-addr .cl-addr-name { font-weight: 700; }
+.cl-addr .cl-addr-company { font-weight: 700; }
+.cl-p { margin: 0 0 10px; text-align: justify; }
+.cl-blank { border-bottom: 1px solid #000; display: inline-block; min-width: 60px; }
+
+/* Performance-security table on the Notice of Award. */
+.cl-bond { border-collapse: collapse; margin: 12px auto; width: 76%; }
+.cl-bond td { border: 1px solid #000; padding: 5px 9px; font-size: 14px; vertical-align: middle; }
+.cl-bond td.cl-bond-amt { text-align: center; font-weight: 700; white-space: nowrap; width: 40%; }
+.cl-note { text-align: center; font-weight: 700; color: #c00; font-size: 11px; margin: 8px 0 14px; }
+
+.cl-sign-block { margin-top: 16px; }
+.cl-sign-name { font-weight: 700; margin-top: 34px; }
+.cl-ack { margin-top: 26px; line-height: 2.1; }
+.cl-ack .cl-sub { font-size: 10.5px; font-style: italic; }
+.cl-receipt-date { display: inline-block; vertical-align: top; text-align: center; line-height: 1.3; }
+.cl-receipt-date .cl-blank { display: block; min-width: 220px; height: 24px; }
+</style></head><body><div id="cbPrintSource"></div><div id="cbPdfLoading"></div><iframe id="cbPdfFrame"></iframe><button id="cbPdfDownload"></button><button id="cbPdfPrint"></button><button id="cbPdfOpenTab"></button><script src="vendor/js/html2canvas.min.js"></script><script src="vendor/js/jspdf.umd.min.js"></script><script src="js/print-pdf.js"></script><script>const CB_BOND_RATES = {"cash_bond_amount":0.05,"surety_bond_amount":0.3};
+const CB_REPORT_DEFAULTS = {"signatory_name":"JAY WARREN R. PABILLARAN","signatory_title":"City Mayor","witness_entity_name":"BELLA STEPHANIE B. SAAVEDRA","witness_entity_title":"City Treasurer"};
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function parseMoney(value) {
+    if (value === null || value === undefined) return 0;
+    const clean = String(value).replace(/[^0-9.\-]/g, '');
+    return clean === '' ? 0 : (parseFloat(clean) || 0);
+}
+function formatMoney(value) {
+    return Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function bidWithReportDefaults(bid) {
+    const result = Object.assign({}, bid);
+    Object.entries(CB_REPORT_DEFAULTS).forEach(([key, value]) => {
+        if (!String(result[key] ?? '').trim()) result[key] = value;
+    });
+    const price = parseMoney(result.contract_amount)
+        || (result.items || []).reduce((sum, item) => sum + parseMoney(item.total_cost), 0);
+    Object.entries(CB_BOND_RATES).forEach(([key, rate]) => {
+        if (!String(result[key] ?? '').trim() && price > 0) {
+            result[key] = Math.round(price * rate * 100) / 100;
+        }
+    });
+    return result;
+}
+function numberToWords(num) {
+    const ones  = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens  = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const scales = ['', 'Thousand', 'Million', 'Billion'];
+    function chunk(n) {
+        let str = '';
+        if (n >= 100) { str += ones[Math.floor(n / 100)] + ' Hundred '; n %= 100; }
+        if (n >= 20) { str += tens[Math.floor(n / 10)] + ' '; n %= 10; }
+        else if (n >= 10) { str += teens[n - 10] + ' '; n = 0; }
+        if (n > 0) str += ones[n] + ' ';
+        return str.trim();
+    }
+    let intPart = Math.floor(num);
+    if (intPart === 0) return 'Zero';
+    const parts = [];
+    let scaleIndex = 0;
+    while (intPart > 0) {
+        const c = intPart % 1000;
+        if (c > 0) parts.unshift(chunk(c) + (scales[scaleIndex] ? ' ' + scales[scaleIndex] : ''));
+        intPart = Math.floor(intPart / 1000);
+        scaleIndex++;
+    }
+    return parts.join(' ').trim();
+}
+
+// The contract writes the price out in full capitals followed by the figure —
+// "TEN MILLION SIX HUNDRED FIFTY THOUSAND PESOS ONLY (P 10,650,000.00)".
+function amountInWords(amount) {
+    const cents = Math.round(parseMoney(amount) * 100);
+    const pesos = Math.floor(cents / 100), remainder = cents % 100;
+    return numberToWords(pesos).toUpperCase() + (pesos === 1 ? ' PESO' : ' PESOS')
+        + (remainder ? ' AND ' + numberToWords(remainder).toUpperCase() + (remainder === 1 ? ' CENTAVO' : ' CENTAVOS') : '')
+        + ' ONLY';
+}
+
+// A blank prints as the ruled line the parties fill in by hand, which is what
+// the original does for every date left open at signing.
+function printedOr(value, blankWidth) {
+    const v = String(value == null ? '' : value).trim();
+    return v ? escapeHtml(v) : `<span class="cp-blank" style="min-width:${blankWidth || 60}px">&nbsp;</span>`;
+}
+
+function longDate(value) {
+    if (!value) return '';
+    const d = new Date(String(value).replace(' ', 'T'));
+    return isNaN(d) ? String(value) : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// Item numbering is derived here, not stored. It is purely positional — priced
+// rows count 1, 2, 3… and description-only lines carry no number — so deriving
+// it at print time is the only way it cannot fall out of step with row order.
+function buildContractItemRows(items) {
+    let n = 0;
+    return items.map(item => {
+        const amount = parseMoney(item.total_cost);
+        const priced = amount > 0;
+        // A stored "0.000" is a non-empty string and therefore truthy, so the
+        // obvious `value ? … : ''` prints a zero on every heading row. Compare
+        // numerically instead.
+        const qty  = parseMoney(item.quantity);
+        const cost = parseMoney(item.unit_cost);
+        return `<tr class="${priced ? 'cp-priced' : ''}">
+            <td class="center">${priced ? ++n : ''}</td>
+            <td class="center">${qty ? formatQty(qty) : ''}</td>
+            <td class="center">${escapeHtml(item.unit) || ''}</td>
+            <td class="desc">${cleanDescription(item.items_description).split('\n').map(line => `<div class="cp-desc-line">${escapeHtml(line) || '&nbsp;'}</div>`).join('')}</td>
+            <td class="num">${cost ? formatMoney(cost) : ''}</td>
+            <td class="num">${priced ? formatMoney(amount) : ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+// Quantities are whole numbers far more often than not, and "1.000 Unit" reads
+// like a rounding artefact on a contract. Trailing zeros are dropped, real
+// fractions kept.
+function formatQty(n) {
+    return Number(n).toLocaleString('en-PH', { maximumFractionDigits: 3 });
+}
+
+// Drops trailing spaces on each line and blank lines at the end. Leading
+// spaces are left alone — they are the indentation the buyer typed, and
+// pre-wrap renders them.
+function cleanDescription(v) {
+    return String(v == null ? '' : v).replace(/[ \t]+$/gm, '').replace(/\s+$/, '');
+}
+
+function buildContractHtml(bid) {
+    bid = bidWithReportDefaults(bid);
+    const amount = parseMoney(bid.contract_amount);
+    const itemsTotal = (bid.items || []).reduce((n, i) => n + parseMoney(i.total_cost), 0);
+    // The figure the contract is executed for is the stored contract amount,
+    // falling back to the items only when nobody set one — an executed price
+    // is not something the item grid gets to restate.
+    const price = amount || itemsTotal;
+    const priceText = `<strong>${amountInWords(price)} (P ${formatMoney(price)})</strong>`;
+    const name = escapeHtml(bid.contract_name || '');
+    const nameLoc = name + (bid.contract_location ? ', ' + escapeHtml(bid.contract_location) : '');
+
+    return `
+    <div class="cp-page">
+      <div class="cp-frame"><div class="cp-frame-inner">
+
+        <table class="cp-letterhead">
+          <tr>
+            <td class="cp-seal"><img src="image/citylogo.png" alt=""></td>
+            <td class="cp-lh-text">
+              <div class="cp-lh-rep">Republic of the Philippines</div>
+              <div class="cp-lh-rep">Province of Bukidnon</div>
+              <div class="cp-lh-city">City of Malaybalay</div>
+              <div>New City Hall, Barangay Casisang. 8700</div>
+              <div>Tel (088) 813-4761-2</div>
+            </td>
+          </tr>
+        </table>
+        <hr class="cp-rule">
+
+        <div class="cp-contract-no">Contract No.: <span class="cp-val">${printedOr(bid.contract_number, 120)}</span></div>
+
+        <div class="cp-title-box">
+          <div class="cp-title-kicker">CONTRACT FOR</div>
+          <div class="cp-title-name">${nameLoc}</div>
+        </div>
+
+        <div class="cp-h">KNOW ALL MEN BY THESE PRESENTS:</div>
+
+        <p class="cp-p">This CONTRACT executed on the ${printedOr(contractDay(bid.contract_date), 50)} day of
+          ${printedOr(contractMonth(bid.contract_date), 90)} ${escapeHtml(contractYear(bid.contract_date))} by and between:</p>
+
+        <p class="cp-p"><strong>CITY GOVERNMENT OF MALAYBALAY</strong>, a government agency of the Republic of the
+          Philippines, hereinafter called <strong>&ldquo;the Entity&rdquo;</strong>;</p>
+
+        <div class="cp-center">-and-</div>
+
+        <p class="cp-p"><strong>${escapeHtml(bid.supplier_name || '')}</strong> a company duly organized and existing
+          under the laws of <strong>${printedOr(bid.supplier_org_place, 90)}</strong>, with principal office at
+          <strong>${escapeHtml(bid.supplier_address || '')}</strong>, hereinafter called
+          <strong>&ldquo;the Supplier&rdquo;</strong>.</p>
+
+        <p class="cp-p"><strong>WHEREAS,</strong> the Entity invited Bids for certain goods,
+          <strong>${name}</strong>${bid.contract_location ? ', <strong>' + escapeHtml(bid.contract_location) + '</strong>' : ''};</p>
+
+        <p class="cp-p"><strong>WHEREAS</strong>, the Supplier submitted a responsive bid and was awarded the contract
+          for the procurement in the total amount of ${priceText}, hereinafter referred to as the
+          <strong>&ldquo;Contract Price.&rdquo;</strong></p>
+
+        <p class="cp-p"><strong>NOW, THEREFORE,</strong> for and in consideration of the foregoing premises, the parties
+          hereby agree as follows:</p>
+
+        <div class="cp-list">
+          <div><span class="cp-marker">1.</span>Unless otherwise stated, terms and expressions used in this Contract
+            shall have the same meanings as those assigned to them in the Conditions of Contract, which form an integral
+            part of this Contract.</div>
+          <div><span class="cp-marker">2.</span>The following documents as required by the Implementing Rules and
+            Regulations of Republic Act No. 12009 shall form part and be read and construed as integral parts of this
+            Contract, <em>viz.</em>:
+            <div class="cp-sublist">
+              <div><strong><em>a.&nbsp;&nbsp;Philippine Bidding Documents (PBD);</em></strong></div>
+              <div style="padding-left:22px"><strong><em>&bull; For Procurement of Goods</em></strong></div>
+              <div style="padding-left:22px">i.&nbsp;&nbsp;&nbsp;&nbsp;Invitation to Bid;</div>
+              <div style="padding-left:22px">ii.&nbsp;&nbsp;&nbsp;Instruction to Bidders;</div>
+              <div style="padding-left:22px">iii.&nbsp;&nbsp;Bid Form, including all the documents/statements contained in the Bidder&rsquo;s bidding envelopes, as annexes, and all other documents submitted (e.g., Bidder&rsquo;s response to request for clarifications on the bid), including corrections to the bid, if any, resulting from the Procuring Entity&rsquo;s bid evaluation;</div>
+              <div style="padding-left:22px">iv.&nbsp;&nbsp;&nbsp;Bid Data Sheet;</div>
+              <div style="padding-left:22px">v.&nbsp;&nbsp;&nbsp;&nbsp;Schedule of Requirements;</div>
+              <div style="padding-left:22px">vi.&nbsp;&nbsp;&nbsp;Technical Specifications;</div>
+              <div style="padding-left:22px">vii.&nbsp;&nbsp;General and Special Conditions of Contract;</div>
+              <div style="padding-left:22px">viii.&nbsp;Supplemental Bid Bulletins, if any; and</div>
+              <div style="padding-left:22px">ix.&nbsp;&nbsp;&nbsp;Other contract documents that may be required by existing laws and/or the Entity.</div>
+              <div><strong><em>b.&nbsp;&nbsp;Winning bidder&rsquo;s bid, including the Eligibility Requirements, Technical and Financial Proposals, and all other documents or statements submitted;</em></strong></div>
+              <div><strong><em>c.&nbsp;&nbsp;Performance Security;</em></strong></div>
+              <div><strong><em>d.&nbsp;&nbsp;Notice of Award of Contract; and the Bidder&rsquo;s Conforme thereto; and</em></strong></div>
+              <div><strong><em>e.&nbsp;&nbsp;Other contract documents that may be required by existing laws and/or the Procuring Entity concerned in the PBD, such as but not limited to the Notice to Proceed and Warranty Security.</em></strong></div>
+            </div>
+          </div>
+          <div><span class="cp-marker">3.</span>In consideration of the Contract Price of ${priceText}, or such other
+            sums as may be determined in accordance with the terms of the Contract, the Supplier agrees to deliver and
+            perform the items and related services for the <strong>${nameLoc}</strong> described herein in accordance
+            with the terms and conditions specified in the Contract and its annexed documents.</div>
+        </div>
+
+        <table class="cp-items">
+          <thead>
+            <tr>
+              <th style="width:6%">Item No.</th>
+              <th style="width:7%">QTY</th>
+              <th style="width:9%">Unit</th>
+              <th style="width:44%">Description</th>
+              <th style="width:17%">Unit Cost</th>
+              <th style="width:17%">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${buildContractItemRows(bid.items || [])}
+            <tr><td colspan="4" class="cp-nothing">***NOTHING AS FOLLOWS***</td><td></td><td></td></tr>
+            <tr class="cp-grand">
+              <td colspan="4" class="cp-grand-label">${amountInWords(price)}</td>
+              <td class="center">GRAND TOTAL</td>
+              <td class="num">${formatMoney(price)}</td>
+            </tr>
+            <tr class="cp-delivery">
+              <td colspan="2" class="center">Place of Delivery:</td>
+              <td colspan="2" class="center">${escapeHtml(bid.place_of_delivery || '')}</td>
+              <td class="center">Delivery Term:</td>
+              <td class="center">${escapeHtml(bid.delivery_term || '')}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="cp-penalty">In case of failure to make the full delivery within the time specified above, a penalty of
+          one-tenth (1/10) of one percent for every day of delay shall be imposed.</p>
+
+        <div class="cp-list">
+          <div><span class="cp-marker">4.</span>The <strong>CITY GOVERNMENT OF MALAYBALAY</strong> agrees to pay the
+            above-mentioned sum to the Supplier in accordance with the schedule and manner provided in the Bidding
+            Documents and its annexes.</div>
+          <div><span class="cp-marker">5.</span>Any dispute, difference, or claim arising out of or relating to this
+            Contract, including its existence, validity, interpretation, breach, or termination thereof, may be
+            submitted to arbitration or other form of alternative dispute resolution in accordance with the applicable
+            law, such as Republic Act No. 9285 (Alternative Dispute Resolution Act of 2004) or Executive Order No 1008,
+            series 1985 (Construction Industry Arbitration Law).</div>
+        </div>
+
+        <div class="cp-signatures">
+        <p class="cp-p" style="margin-top:18px"><strong>IN WITNESS WHEREOF,</strong> the parties hereto have caused this
+          Contract to be executed in accordance with the laws of the Republic of the Philippines on the day and year
+          first above written.</p>
+
+        <table class="cp-sign">
+          <tr>
+            <td>
+              <div class="cp-sign-role">Head of the Procuring Entity or Duly Authorized Representative</div>
+              <div class="cp-sign-name">${escapeHtml(bid.signatory_name || '')}</div>
+              <div class="cp-sign-title">${escapeHtml(bid.signatory_title || '')}</div>
+              <div class="cp-sign-date">Date:<span class="cp-blank" style="min-width:130px">&nbsp;</span></div>
+            </td>
+            <td>
+              <div class="cp-sign-role">Duly authorized to sign the Contract for and behalf of
+                <strong>${escapeHtml(bid.supplier_name || '')}</strong></div>
+              <div class="cp-sign-name">${escapeHtml(bid.representative_name || '')}</div>
+              <div class="cp-sign-title">${escapeHtml(bid.representative_title || '')}</div>
+              <div class="cp-sign-date">Date:<span class="cp-blank" style="min-width:130px">&nbsp;</span></div>
+            </td>
+          </tr>
+        </table>
+
+        <div class="cp-center" style="font-weight:700;font-style:italic;margin-top:6px">Signed in the presence of:</div>
+
+        <table class="cp-sign">
+          <tr>
+            <td style="padding-top:34px">
+              <div class="cp-sign-name">${escapeHtml(bid.witness_entity_name || '')}</div>
+              <div class="cp-sign-title">${escapeHtml(bid.witness_entity_title || '')}</div>
+              <div class="cp-sign-title">Witness &ndash; Procuring Entity</div>
+            </td>
+            <td style="padding-top:34px">
+              <div class="cp-sign-name cp-witness-line">${escapeHtml(bid.witness_supplier_name || '') || '&nbsp;'}</div>
+              <div class="cp-sign-title">Name and Signature</div>
+              <div class="cp-sign-title">Witness&ndash; Supplier</div>
+            </td>
+          </tr>
+        </table>
+
+        </div>
+        <div class="cp-notary">
+        <div class="cp-h" style="text-align:left;margin-top:26px">ACKNOWLEDGMENT</div>
+
+        <p class="cp-p">BEFORE ME, A Notary Public for and in the ${printedOr(bid.notary_place, 190)}, City/Province of
+          <span class="cp-blank" style="min-width:150px">&nbsp;</span>, this
+          ${printedOr(contractDay(bid.contract_date), 44)} day of
+          ${printedOr(contractMonth(bid.contract_date), 110)}, ${escapeHtml(contractYear(bid.contract_date))},
+          personally appeared the above-named persons who have satisfactorily proven to me their identity, through their
+          identifying documents written below their names and signatures, that they are the same persons who executed
+          and voluntarily signed the foregoing instrument consisting of <strong class="cp-page-count">ONE (1)</strong>
+          pages, including this page where this Acknowledgement is written, which they acknowledged before me as their free and voluntary
+          act and deed.</p>
+
+        <p class="cp-p">WITNESS MY HAND AND SEAL this <span class="cp-blank" style="min-width:44px">&nbsp;</span> day of
+          <span class="cp-blank" style="min-width:130px">&nbsp;</span>, <em>${escapeHtml(contractYear(bid.contract_date))}</em>.</p>
+
+        <div class="cp-notary-grid">
+          <div>NAME OF NOTARY PUBLIC&nbsp;&nbsp;${printedOr(bid.notary_name, 200)}</div>
+          <div>Notarial Commission No.&nbsp;&nbsp;<span class="cp-blank" style="min-width:150px">&nbsp;</span></div>
+          <div>Notary Public for&nbsp;&nbsp;<span class="cp-blank" style="min-width:110px">&nbsp;</span>
+               until&nbsp;&nbsp;<span class="cp-blank" style="min-width:110px">&nbsp;</span></div>
+          <div>Roll of Attorneys No.&nbsp;&nbsp;<span class="cp-blank" style="min-width:140px">&nbsp;</span></div>
+          <div>PTR No.&nbsp;&nbsp;<span class="cp-blank" style="min-width:150px">&nbsp;</span></div>
+          <div>IBP No.&nbsp;&nbsp;<span class="cp-blank" style="min-width:150px">&nbsp;</span></div>
+        </div>
+
+        <div class="cp-notary-grid" style="margin-top:20px">
+          <div>Doc. No.&nbsp;&nbsp;${printedOr(bid.notary_doc_no, 70)}</div>
+          <div>Page No.&nbsp;&nbsp;${printedOr(bid.notary_page_no, 70)}</div>
+          <div>Book No.&nbsp;&nbsp;${printedOr(bid.notary_book_no, 70)}</div>
+          <div>Series of.&nbsp;&nbsp;${printedOr(bid.notary_series, 70)}</div>
+        </div>
+        </div>
+
+      </div></div>
+    </div>`;
+}
+
+// The contract's opening line reads "executed on the ___ day of ___ 2026", so
+// the date is split rather than formatted whole. An unset contract date leaves
+// the day and month as ruled lines and falls back to the current year, which
+// is what the blank forms are pre-printed with.
+function contractDay(value) {
+    if (!value) return '';
+    const d = new Date(String(value).replace(' ', 'T'));
+    return isNaN(d) ? '' : String(d.getDate());
+}
+function contractMonth(value) {
+    if (!value) return '';
+    const d = new Date(String(value).replace(' ', 'T'));
+    return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'long' });
+}
+function contractYear(value) {
+    if (!value) return String(new Date().getFullYear());
+    const d = new Date(String(value).replace(' ', 'T'));
+    return isNaN(d) ? String(new Date().getFullYear()) : String(d.getFullYear());
+}
+
+
+// ── Notice of Award / Notice to Proceed ─────────────────────────────────
+// Both sit on the BAC's letterhead and share their opening block, so that much
+// is built once. `sfNumber` is the standard-form identity printed above the
+// rule — the Notice of Award carries SF-GOOD-49, the Notice to Proceed none.
+function buildBacLetterhead(sfNumber) {
+    return `
+        <table class="cl-letterhead">
+          <tr>
+            <td class="cl-seal"><img src="image/citylogo.png" alt=""></td>
+            <td class="cl-lh-text">
+              <div class="cl-lh-rep">Republic of the Philippines</div>
+              <div class="cl-lh-rep">Province of Bukidnon</div>
+              <div class="cl-lh-city">City of Malaybalay</div>
+              <div class="cl-lh-bac">Bids and Awards Committee</div>
+              <div>New City Hall, Barangay Casisang</div>
+              <div>Malaybalay City, Bukidnon</div>
+              <div>Tel (088) 813-4761</div>
+              <div class="cl-lh-mail">bacmalaybalay@gmail.com</div>
+            </td>
+            <td class="cl-seal"><img src="image/City%20BAC.png" alt=""></td>
+          </tr>
+        </table>
+        ${sfNumber ? `<div class="cl-sf">Standard Form Number: ${escapeHtml(sfNumber)}<br>Revised on: May 24, 2004</div>` : ''}
+        <hr class="cl-rule">`;
+}
+
+// The three-line reference block both letters open with.
+function buildBacReferenceBlock(bid) {
+    return `
+        <table class="cl-ref">
+          <tr><td class="cl-ref-label">Contract Reference Number:</td><td class="cl-ref-value">${escapeHtml(bid.bid_number || '')}</td></tr>
+          <tr><td class="cl-ref-label">Name of the Contract:</td><td class="cl-ref-value">${escapeHtml(bid.contract_name || '')}</td></tr>
+          <tr><td class="cl-ref-label">Location of the Contract:</td><td class="cl-ref-value">${escapeHtml(bid.contract_location || '')}</td></tr>
+        </table>`;
+}
+
+// Who the letter is addressed to. Identical on both documents.
+function buildBidderAddressBlock(bid) {
+    return `
+        <div class="cl-addr">
+          <div class="cl-addr-name">${escapeHtml(bid.representative_name || '')}</div>
+          <div>${escapeHtml(bid.representative_title || '')}</div>
+          <div class="cl-addr-company">${escapeHtml(bid.supplier_name || '')}</div>
+          <div>${escapeHtml(bid.supplier_address || '')}</div>
+          ${bid.supplier_address2 ? `<div>${escapeHtml(bid.supplier_address2)}</div>` : ''}
+        </div>`;
+}
+
+function buildNoticeOfAwardHtml(bid) {
+    bid = bidWithReportDefaults(bid);
+    const price = parseMoney(bid.contract_amount)
+        || (bid.items || []).reduce((n, i) => n + parseMoney(i.total_cost), 0);
+    const nameLoc = escapeHtml(bid.contract_name || '')
+        + (bid.contract_location ? ', ' + escapeHtml(bid.contract_location) : '');
+
+    return `
+    <div class="cl-page">
+      ${buildBacLetterhead('SF-GOOD-49')}
+      ${buildBacReferenceBlock(bid)}
+
+      <div class="cl-title">NOTICE OF AWARD</div>
+      <div class="cl-date">${bid.noa_date ? escapeHtml(longDate(bid.noa_date)) : '&nbsp;'}</div>
+
+      ${buildBidderAddressBlock(bid)}
+
+      <p class="cl-p">Dear Sir:</p>
+
+      <p class="cl-p">We are informing you that your Bid dated <strong>${bid.bid_date ? escapeHtml(longDate(bid.bid_date)) : '__________'}</strong>
+        for execution of <strong>BID NO. ${escapeHtml(bid.bid_number || '')} ${nameLoc}</strong> with a total contract
+        price of <strong>${amountInWords(price)} (P ${formatMoney(price)})</strong> is hereby accepted.</p>
+
+      <p class="cl-p">You are hereby required to provide within ten (10) calendar days the performance security in the
+        form and the amount stipulated below:</p>
+
+      <p class="cl-p">Failure to provide the performance security shall constitute sufficient ground for cancellation of
+        the award and forfeiture of the bid security.</p>
+
+      <table class="cl-bond">
+        <tr>
+          <td><strong>Cash Bond, cashier's /manager's check, Bank Draft/guarantee: or Irrevocable Letter of Credit; or</strong></td>
+          <td class="cl-bond-amt">${String(bid.cash_bond_amount ?? '').trim() ? 'P ' + formatMoney(parseMoney(bid.cash_bond_amount)) : '&nbsp;'}</td>
+        </tr>
+        <tr>
+          <td><strong>Surety Bond:</strong></td>
+          <td class="cl-bond-amt">${String(bid.surety_bond_amount ?? '').trim() ? 'P ' + formatMoney(parseMoney(bid.surety_bond_amount)) : '&nbsp;'}</td>
+        </tr>
+      </table>
+
+      <div class="cl-note">*** Note: Expiry should be &ldquo;Until Issuance of final acceptance&rdquo;</div>
+
+      <p class="cl-p">Very truly yours,</p>
+      <div class="cl-sign-block">
+        <div class="cl-sign-name">${escapeHtml(bid.signatory_name || '')}</div>
+        <div>${escapeHtml(bid.signatory_title || '')}</div>
+      </div>
+
+      <div style="margin-top:26px">Conformed:</div>
+      <div class="cl-sign-block">
+        <div class="cl-sign-name">${escapeHtml(bid.representative_name || '')}</div>
+        <div>${escapeHtml(bid.supplier_name || '')}</div>
+        <div style="margin-top:6px">Date:<span class="cl-blank" style="min-width:150px">&nbsp;</span></div>
+      </div>
+    </div>`;
+}
+
+function buildNoticeToProceedHtml(bid) {
+    bid = bidWithReportDefaults(bid);
+    const nameLoc = escapeHtml(bid.contract_name || '')
+        + (bid.contract_location ? ', ' + escapeHtml(bid.contract_location) : '');
+
+    return `
+    <div class="cl-page">
+      ${buildBacLetterhead('')}
+      ${buildBacReferenceBlock(bid)}
+
+      <div class="cl-title">NOTICE TO PROCEED</div>
+      <div class="cl-date">${bid.ntp_date ? escapeHtml(longDate(bid.ntp_date)) : '&nbsp;'}</div>
+
+      ${buildBidderAddressBlock(bid)}
+
+      <p class="cl-p">Dear Sir:</p>
+
+      <p class="cl-p">The attached Contract Agreement having been approved, notice is hereby given to
+        <strong>${escapeHtml(bid.supplier_name || '')}</strong> that work may commence on the
+        <strong>${nameLoc}.</strong></p>
+
+      <p class="cl-p">Upon receipt of this notice, you are responsible for performing the services under the terms and
+        conditions of the Agreement and in accordance with the Implementation and Payment Schedule:</p>
+
+      <p class="cl-p">Please acknowledge receipt and acceptance of this notice by signing both copies in the space
+        provided below, keep one copy and return the other to the <strong><em>City of Malaybalay.</em></strong></p>
+
+      <p class="cl-p" style="margin-top:34px">Very truly yours,</p>
+      <div class="cl-sign-block">
+        <div class="cl-sign-name">${escapeHtml(bid.signatory_name || '')}</div>
+        <div>${escapeHtml(bid.signatory_title || '')}</div>
+      </div>
+
+      <div class="cl-ack">
+        <div>I acknowledge receipt of this Notice on <span class="cl-receipt-date"><span class="cl-blank">&nbsp;</span><span class="cl-sub">(Date of receipt)</span></span></div>
+        <div>Name of the Representative of the Bidder
+          <span style="border-bottom:1px solid #000;padding:0 12px;font-weight:700">${escapeHtml(bid.representative_name || '') || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</span></div>
+        <div>Authorized Signature: <span class="cl-blank" style="min-width:250px">&nbsp;</span></div>
+      </div>
+    </div>`;
+}
+
+// The three documents, in the order the BAC issues them. Each says how to
+// build it, what to call the file, and what furniture the printed original
+// carries — the contract has a running header and the marginal initialling
+// strip, the two letters have neither.
+const CB_DOCUMENTS = {
+    noa: {
+        label: 'Notice of Award',
+        build: buildNoticeOfAwardHtml,
+        selector: '.cl-page',
+        file: 'Notice_of_Award',
+        singlePage: true,
+        breakSelector: '.cl-p, .cl-bond, .cl-sign-block, .cl-ack > div',
+        gridSelector: '.cl-bond',
+        headerBandPt: 0,
+        furniture: 'plain',
+    },
+    contract: {
+        label: 'Contract Agreement',
+        build: buildContractHtml,
+        selector: '.cp-page',
+        file: 'Contract',
+        breakSelector: '.cp-items tr, .cp-desc-line, .cp-frame-inner > .cp-p, .cp-list > div, .cp-sublist > div, .cp-title-box, .cp-signatures, .cp-notary',
+        gridSelector: '.cp-items',
+        headerBandPt: 22,
+        furniture: 'contract',
+        // The longest of the three prints by far (20+ pages once a bid covers
+        // this many items) — the shared single-canvas pipeline has to shrink
+        // a document that long below full resolution to stay under the
+        // browser's canvas size cap, which is what made this one specifically
+        // look soft. Rasterising it page-by-page instead keeps every page at
+        // full scale regardless of how many there are.
+        perPage: true,
+    },
+    ntp: {
+        label: 'Notice to Proceed',
+        build: buildNoticeToProceedHtml,
+        selector: '.cl-page',
+        file: 'Notice_to_Proceed',
+        singlePage: true,
+        breakSelector: '.cl-p, .cl-sign-block, .cl-ack > div',
+        gridSelector: '',
+        headerBandPt: 0,
+        furniture: 'plain',
+    },
+};
+
+// The two letters print with nothing but the date/page line at the foot. A
+// page number is still worth printing: a one-page letter says "Page 1 of 1",
+// which is how a reader knows nothing is missing from the envelope.
+function drawPlainFurniture(pdf, page, pageCount, geo, stamp) {
+    const baseline = geo.pageH - geo.margin - 4;
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+    pdf.text(`Date Printed: ${stamp.date}   ${stamp.time}`, geo.margin, baseline);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.text(`Page ${page} of ${pageCount}`, geo.pageW - geo.margin, baseline, { align: 'right' });
+}
+
+function drawContractFurniture(pdf, page, pageCount, geo, bid, stamp) {
+    bid = bidWithReportDefaults(bid);
+    pdf.setTextColor(0, 0, 0);
+
+    // The pre-bordered-stock double rule, closed on every page — around the
+    // content box only, not the running header/footer bands above and below
+    // it, matching where the form's own raster is placed.
+    const frameX = geo.margin;
+    const frameY = geo.margin + geo.headerBandPt - 8;
+    const frameW = geo.contentW;
+    const frameH = geo.pageH - geo.margin - geo.footerBandPt - frameY;
+    pdf.setDrawColor(31, 63, 143);
+    pdf.setLineWidth(1.4);
+    pdf.rect(frameX, frameY, frameW, frameH);
+    pdf.setLineWidth(0.75);
+    pdf.rect(frameX + 3, frameY + 3, frameW - 6, frameH - 6);
+    pdf.setDrawColor(0, 0, 0);
+
+    // Running header, on the baseline of the reserved top band.
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8.5);
+    pdf.text('Bid No. ' + (bid.bid_number || ''), geo.margin, geo.margin + 10);
+    pdf.text('Page ' + page + ' of ' + pageCount, geo.pageW - geo.margin, geo.margin + 10, { align: 'right' });
+    pdf.setTextColor(0, 0, 0);
+
+    // Foot of the sheet.
+    const baseline = geo.pageH - geo.margin - 4;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+    pdf.text(`Date Printed: ${stamp.date}   ${stamp.time}`, geo.margin, baseline);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.text(`Page ${page} of ${pageCount}`, geo.pageW - geo.margin, baseline, { align: 'right' });
+
+    // Keep all four signing positions, including a blank supplier-witness
+    // line. Center along the rotated baseline: jsPDF's align:'center' shifts
+    // the unrotated x coordinate and would push long names off the paper.
+    const strip = [
+        [bid.witness_supplier_name, 'Supplier Witness'],
+        [bid.representative_name, bid.representative_title],
+        [bid.witness_entity_name, (bid.witness_entity_title || '') + ' Witness'],
+        [bid.signatory_name, bid.signatory_title],
+    ];
+
+    const usable = frameH - 132;
+    const step = usable / strip.length;
+    strip.forEach((pair, i) => {
+        const y = frameY + 122 + step * i + step / 2;
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        const name = String(pair[0] || '').trim().toUpperCase() || '________________________';
+        pdf.setFontSize(Math.min(9, 9 * (step - 12) / Math.max(pdf.getTextWidth(name), 1)));
+        pdf.text(name, frameX + 24, y + pdf.getTextWidth(name) / 2, { angle: 90 });
+        if (String(pair[1] || '').trim()) {
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(7.5);
+            const role = String(pair[1]);
+            pdf.setFontSize(Math.min(7.5, 7.5 * (step - 12) / Math.max(pdf.getTextWidth(role), 1)));
+            pdf.text(role, frameX + 34, y + pdf.getTextWidth(role) / 2, { angle: 90 });
+        }
+    });
+}
+const CB_FOOTER_BAND_PT = 20;
+async function generateBidPdf(bid, doc) {
+    const loading = document.getElementById('cbPdfLoading');
+    const frame = document.getElementById('cbPdfFrame');
+    const buttons = ['cbPdfDownload', 'cbPdfPrint', 'cbPdfOpenTab'].map(id => document.getElementById(id));
+
+    frame.classList.add('d-none');
+    buttons.forEach(b => { if (b) b.disabled = true; });
+    loading.classList.remove('d-none');
+    loading.innerHTML = '<div class="spinner-border text-primary" role="status"></div><div class="small mt-2">Generating PDF preview…</div>';
+
+    try {
+        const source = document.querySelector('#cbPrintSource ' + doc.selector);
+        if (!source) throw new Error('Print content did not render — try closing and reopening the preview.');
+
+        const stamp = PrintPdf.printedStamp();
+        const renderFn = doc.perPage ? PrintPdf.renderPerPageToPdf : PrintPdf.renderToPagedPdf;
+        const pdf = await renderFn(source, {
+            paper: 'long',
+            // A break candidate at every table row and every paragraph, so a cut
+            // never lands mid-sentence or mid-item.
+            breakSelector: doc.breakSelector,
+            gridSelector: doc.gridSelector,
+            headerBandPt: doc.headerBandPt,
+            footerBandPt: CB_FOOTER_BAND_PT,
+            singlePage: !!doc.singlePage,
+            restoreTo: document.getElementById('cbPrintSource'),
+            onLayout: pageCount => {
+                const count = source.querySelector('.cp-page-count');
+                if (count) count.textContent = numberToWords(pageCount).toUpperCase() + ' (' + pageCount + ')';
+            },
+            onPage: (pdf, page, pageCount, geo) => doc.furniture === 'contract'
+                ? drawContractFurniture(pdf, page, pageCount, geo, bid, stamp)
+                : drawPlainFurniture(pdf, page, pageCount, geo, stamp),
+        });
+
+        const blob = pdf.output('blob');
+        if (cbPdfBlobUrl) URL.revokeObjectURL(cbPdfBlobUrl);
+        cbPdfBlobUrl = URL.createObjectURL(blob);
+        cbPdfFileName = `${doc.file}_${bid.bid_number}.pdf`;
+
+        frame.src = cbPdfBlobUrl + CB_PDF_VIEW_PARAMS;
+        loading.classList.add('d-none');
+        frame.classList.remove('d-none');
+        buttons.forEach(b => { if (b) b.disabled = false; });
+    } catch (err) {
+        // Surfaced directly rather than as a generic message, so a failure is
+        // diagnosable instead of a dead end.
+        loading.innerHTML = '<div class="text-danger small px-3"><i class="fas fa-triangle-exclamation me-1"></i>Unable to generate the PDF: '
+            + escapeHtml(err.message || String(err)) + '</div>';
+        console.error(err);
+    }
+}
+let cbPdfBlobUrl = null, cbPdfFileName = ''; const CB_PDF_VIEW_PARAMS = '';
+const fixtures = {"guide":{"id":1,"bid_number":"2026-055","contract_number":"2026-130","contract_name":"PURCHASE OF 1 UNIT WHEEL LOADER","contract_location":"CDRRMO, MALAYBALAY CITY","supplier_name":"MONARK EQUIPMENT CORPORATION","supplier_address":"13 Economia St. Bagumbayan, Quezon City","supplier_address2":"w\/ Branch office at El Salvador, Misamis Oriental","supplier_org_place":"Quezon City","representative_name":"REYNARD MORENO","representative_title":"Account Manager","contract_amount":"10650000.00","cash_bond_amount":"532500.00","surety_bond_amount":"3195000.00","place_of_delivery":"NEW CITY HALL, BARANGAY CASISANG","delivery_term":"30 C.D.","bid_date":"2026-04-29","contract_date":"","noa_date":"2026-07-29","ntp_date":"","signatory_name":"JAY WARREN R. PABILLARAN","signatory_title":"City Mayor","witness_entity_name":"BELLA STEPHANIE B. SAAVEDRA","witness_entity_title":"City Treasurer","witness_supplier_name":"","notary_name":"ATTY. JAY S. ALBARECE","notary_place":"MANOLO FORTICH, BUKIDNON","notary_doc_no":"104","notary_page_no":"21","notary_book_no":"33","notary_series":"2026","remarks":"SAMPLE record, created to demonstrate the module. Not genuine BAC paperwork - the real bid is 2026-055, this one carries a -SAMPLE suffix so the real number stays free. Safe to delete.","items":[{"quantity":"1","unit":"Unit","unit_cost":"10650000.00","total_cost":"10650000.00","is_title":false,"items_description":"WHEEL LOADER\n\nBrand\/ Model: Caterpillar 950GC\n\nSpecifications:\nEngine: Turbocharged Diesel Engine\nRated Engine Horsepower: 243 hp @ designed rpm\nRated Net Torque: 1092 N-m @ designed rpm\nEnvironmental Compliance: Tier IV emission standards\nTransmission: 4 forward \u0026 3 reverse transmission\n\nOperating Specifications:\nOperating Weight: 18.849 metric tons\nBucket Size: 3.2 Cu.m\nBreakout force: 154 kN\nStatic Tipping Load Full turn (no tire deflection): \u2265 11,906 kg\nDumping height at max lift \u0026 45\u00b0 discharge: \u2265 4,188 mm\nGround clearance: 460 mm\n\nOperator Environment: Ladders with guardrails \u0026 handrails\nFully air-conditioned enclosed cab\nAudio-entertainment system\nMechanical suspension seats\n\nSafety Features: ROPS\/FOPS certified cabin\nSeat belts\nBack-up alarm\nAdequate lighting system\n\nInclusions: Standard tools with toolbox\nGrease gun\nDecals \u0026 Logos\nOperator's Manual (Hard and Soft Copy)\nService \u0026 Maintenance Manual (Hard \u0026 Soft Copy)\nParts Manual (Hard \u0026 Soft Copy)\n\nOther Conditions: Machine warranty for 3 years unlimited running hours for factory defects.\nFree preventive maintenance servicing up to 4000 hours with free filters, oils and oil sampling\nFree orientation and training for Operators and Maintenance Personnel\nDealer must have an Exclusive distributorship\/dealership of the equipment being offered by the manufacturing company and must submit proof of the same\nMust have a service center and parts warehouse and service support within Region X \u0026 XI\nAfter sales support team must be available 24\/7\nDealers must provide a 1-year warranty for spare parts purchased as part of their after-sales support.\nSupplier must submit a notarized copy of the machine's waybill or bill of lading\nUnit must be equipped with Remote Management System or Telematics, and company must provide free access to the same\nCompany must have a 24\/7 Online parts store and online parts manual support system for the machine offered and provide free access"}]},"photo":{"bid_number":"2026-130","contract_number":"2026-167","contract_name":"PROCUREMENT OF VARIOUS GROCERY ITEM FOR PAMASKONG HANDOG 2026","contract_location":"CITY MAYOR'S OFFICE","supplier_name":"CENTRO SUPERSALES, INCORPORATED","supplier_address":"Agrosite, South Poblacion, Maramag, Bukidnon","supplier_org_place":"Maramag, Bukidnon","representative_name":"MAELENE M. TING","representative_title":"Authorized Representative","contract_amount":"27020435.50","bid_date":"2026-08-26","place_of_delivery":"Various Barangays","delivery_term":"30 C.D.","items":[{"quantity":"36750","unit":"Package","unit_cost":"735.25","total_cost":"27020437.50","items_description":"1 LOT\nPamaskong Handog Package\n\nEach package contains:\n5 Kilos Well Milled Rice 90% long grain (Local Rice) (Pack in a customized sack)\n2-cans Beef Loaf 150-155 grams (Premium Quality)\n2-cans Corned beef 150-155 grams (Premium Quality)\n1-pack Instant Pure Coffee powder 40 grams\n1-pack Brown Sugar 1 kilo well-packed\n8-pieces Instant Noodles (4 beef, 4 chicken flavor)\n2-cans Sardines 155 grams (Premium)\n1-pack Powdered milk Fortified 135 grams\nNote: Each package includes the costs of markings, packing, and delivery. See the attached box lay-out\nDelivery Site: Various Barangay"}]}};
+window.reportResults = [];
+window.reportFailure = '';
+window.runReportChecks = async function() {
+    try {
+        for (const [fixture, bid] of Object.entries(fixtures)) {
+            for (const type of ['noa', 'contract', 'ntp']) {
+                const doc = CB_DOCUMENTS[type];
+                const host = document.getElementById('cbPrintSource');
+                host.innerHTML = doc.build(bid);
+                await document.fonts.ready;
+                await Promise.all([...host.querySelectorAll('img')].map(img => img.decode()));
+                const source = host.querySelector(doc.selector);
+                const beforeHeight = source.offsetHeight;
+                const width = source.offsetWidth;
+                const fontSize = getComputedStyle(source).fontSize;
+                const bodyText = source.textContent;
+                cbPdfBlobUrl = null;
+                await generateBidPdf(bid, doc);
+                if (!cbPdfBlobUrl) throw new Error(document.getElementById('cbPdfLoading').textContent);
+                const blob = await fetch(cbPdfBlobUrl).then(r => r.blob());
+                const data = await new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(blob); });
+                reportResults.push({fixture, type, width, beforeHeight, fontSize, bodyText,
+                    pageCountText: source.querySelector('.cp-page-count')?.textContent || '', data});
+            }
+        }
+        return reportResults.map(({data, bodyText, ...metadata}) => metadata);
+    } catch (error) {
+        reportFailure = error.stack || error.message;
+        throw error;
+    }
+};</script></body></html>
